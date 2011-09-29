@@ -1,0 +1,17 @@
+NVIDIA_SDK = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v4.0"
+LIBS = $(NVIDIA_SDK)/lib/x64/cudart.lib $(NVIDIA_SDK)/lib/x64/cufft.lib
+
+CUFLAGS = -m64 --ptxas-options=-v -ccbin="C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\bin" -DWIN64  -Xcompiler /EHsc,/W3,/nologo,/Ox,/Oy,/GL -arch=sm_13 -DMERS_PACKAGE -DBIT_SIEVE -DTESTING_SMALL_EXPONENTS -DSIEVE_SIZE_IN_BYTES=32 -DNUM_SMALL_PRIMES=32768 -I$(NVIDIA_SDK)/include -I$(NVIDIA_SDK)/include/cudart "-IC:/ProgramData/NVIDIA Corporation/NVIDIA GPU Computing SDK 4.0/C/common/inc"  -D__x86_64__ -O3
+
+LINK = link
+LFLAGS = /nologo /LTCG #/ltcg:pgo
+
+CUSRC = CUDALucas.cu setup.cu rw.cu balance.cu zero.cu
+
+CUOBJS = $(CUSRC:.cu=.obj)
+
+CUDALucas.exe: $(CUOBJS)
+	$(LINK) $(LFLAGS) $^ $(LIBS) /out:$@
+
+%.obj: %.cu
+	nvcc -c $< -o $@ $(CUFLAGS)

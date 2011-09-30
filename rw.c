@@ -85,14 +85,14 @@ void print_time_from_seconds(int sec)
 {
   if (sec > 3600)
    {
-    printf("%ld", sec/3600);
+    printf("%d", sec/3600);
     sec %= 3600;
-    printf(":%02ld", sec/60);
+    printf(":%02d", sec/60);
    }
   else
-    printf("%ld", sec/60);
+    printf("%d", sec/60);
   sec %= 60;
-  printf(":%02ld", sec);
+  printf(":%02d", sec);
 }
 
 void print_time (int iterations, int current, int total)
@@ -136,17 +136,6 @@ const char *archive_name()
 FILE *open_archive()
 {
   return(fopen(archive_name(), "a"));
-}
-
-static void print_warning(const char *str)
-{
-  static int prior_errno = 0;
-
-  if (prior_errno == errno) return;
-  prior_errno = errno;
-  if (fprintf(stderr, "%s: %s\n", program_name, str) < 0)
-    errno = prior_errno; /* so perror() prints the original complaint, not the new one, if possible */
-  perror(program_name);
 }
 
 int read_check_point(FILE * infp, UL * q, UL * n, UL * j, double * err, double **x)
@@ -298,8 +287,8 @@ get_next_q: /* all but one goto to here are just before a return if (*q < start_
                 arg++;
             break;
            case 'D': // msft
-              if (tmpstr == NULL || sscanf(tmpstr, SCANF_FMT_UL, &device_number) != 1)
-                device_number = (UL)0;
+              if (tmpstr == NULL || sscanf(tmpstr, "%d", &device_number) != 1)
+                device_number = 0;
               else
                 if (tmpstr != NULL && tmpstr == argv[arg + 1])
                   arg++;
@@ -620,14 +609,14 @@ int check_point(UL q, UL n, UL j, double err, double *x)
       {
         perror(program_name);
         fprintf(stderr, "%s: cannot write checkpoint info (k = " PRINTF_FMT_UL ")\n", program_name, k);
-        fprintf(stderr, "%s: fwrite returned %d\n", program_name, retval);
+        fprintf(stderr, "%s: fwrite returned %d\n", program_name, (int)retval);
         return(0);
       }
       if ((retval = fwrite(&q, sizeof(q), 1, chkpnt_fp)) != sizeof(q) && retval != 1UL)
       {
         perror(program_name);
         fprintf(stderr, "%s: cannot write checkpoint info (q = " PRINTF_FMT_UL ")\n", program_name, q);
-        fprintf(stderr, "%s: fwrite returned %d\n", program_name, retval);
+        fprintf(stderr, "%s: fwrite returned %d\n", program_name, (int)retval);
         return(0);
       }
       if ((retval = fwrite(&n, sizeof(n), 1, chkpnt_fp)) != sizeof(n) && retval != 1UL)
@@ -635,7 +624,7 @@ int check_point(UL q, UL n, UL j, double err, double *x)
         perror(program_name);
         fprintf(stderr, "%s: cannot write checkpoint info (n = " PRINTF_FMT_UL ", q = " PRINTF_FMT_UL ")\n",
                 program_name, n, q);
-        fprintf(stderr, "%s: fwrite returned %d\n", program_name, retval);
+        fprintf(stderr, "%s: fwrite returned %d\n", program_name, (int)retval);
         return(0);
       }
       if ((retval = fwrite(&j, sizeof(j), 1, chkpnt_fp)) != sizeof(j) && retval != 1UL)
@@ -643,14 +632,14 @@ int check_point(UL q, UL n, UL j, double err, double *x)
         perror(program_name);
         fprintf(stderr, "%s: cannot write checkpoint info (j = " PRINTF_FMT_UL ", q = " PRINTF_FMT_UL ")\n",
                 program_name, j, q);
-        fprintf(stderr, "%s: fwrite returned %d\n", program_name, retval);
+        fprintf(stderr, "%s: fwrite returned %d\n", program_name, (int)retval);
         return(0);
       }
       if ((retval = fwrite(&err, sizeof(err), 1, chkpnt_fp)) != sizeof(err) && retval != 1UL)
       {
         perror(program_name);
         fprintf(stderr, "%s: cannot write checkpoint info (err, q = " PRINTF_FMT_UL ")\n", program_name, q);
-        fprintf(stderr, "%s: fwrite returned %d\n", program_name, retval);
+        fprintf(stderr, "%s: fwrite returned %d\n", program_name, (int)retval);
         return(0);
       }
       for (k = 0; k < n; k++)
@@ -658,7 +647,7 @@ int check_point(UL q, UL n, UL j, double err, double *x)
         {
           perror(program_name);
           fprintf(stderr, "%s: cannot write checkpoint info (x, q = " PRINTF_FMT_UL ")\n", program_name, q);
-          fprintf(stderr, "%s: fwrite returned %d\n", program_name, retval);
+          fprintf(stderr, "%s: fwrite returned %d\n", program_name, (int)retval);
           return(0);
         }
       break;
@@ -749,7 +738,7 @@ void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, doubl
     version_info = RCSrw_revision;
   }
 
-  if(!archive) fprintf(outfp,"Iteration %ld ", current_iteration);
+  if(!archive) fprintf(outfp,"Iteration %d ", current_iteration);
   if (is_zero(x, n, 0, 0))
   {
     if (outfp != NULL && !ferror(outfp)) fprintf(outfp,  "M( " PRINTF_FMT_UL " )P, n = " PRINTF_FMT_UL ", %s\n", q, n, version_info);

@@ -36,21 +36,3 @@ void balancedtostdrep(double *x, UL n, UL b, UL c, double hi, double lo, UL mask
     }
   }
 }
-
-void check_balanced(double *x, UL n, UL b, UL c, double hi, double lo, UL mask, UL shift)
-{
-  UL j, k;
-  double limit;
-
-  hi *= 0.5;
-  lo *= 0.5;
-  for (j = 0; j < n; ++j)
-  {
-    if (j == 0 || (j != n - 1 && is_big(j, b, c, n)))
-      limit = hi;
-    else
-      limit = lo;
-    k = j + ((j & mask) >> shift);
-    assert((x[k] <= limit) && (x[k] >= -limit));
-  }
-}

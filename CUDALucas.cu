@@ -228,7 +228,7 @@ __global__ void rftfsub_kernel(int n, double *a)
     }
 }
 
-void rdft(int n, int isgn, double *a, int *ip)
+void rdft(int n, double *a, int *ip)
 {
     void makewt(int nw, int *ip, double *w);
     void makect(int nc, int *ip, double *c);
@@ -397,28 +397,6 @@ void bitrv2(int n, int *ip, double *a)
     }
 }
 
-/**************************************************************
-*
-*      FFT and other related Functions
-*
-**************************************************************/
-
-void square_hermitian(double *x, UL n)
-{
-	UL  k, half = n>>1;
-	double c2, d;
-
-    x[0] *= x[0];
-    if ((n & 1) == 0) x[half] *= x[half];
-    for (k=1;k<half;k++)
-    {
-        c2 = x[k];
-        d = x[n-k];
-        x[n-k] = 2.0*c2*d;
-        x[k] = (c2+d)*(c2-d);
-    }
-}
-
 #define BLOCK_DIM 16
 
 // This kernel is optimized to ensure all global reads and writes are coalesced,
@@ -449,6 +427,7 @@ __global__ void transpose(double *odata, double *idata, int width, int height)
         odata[index_out] = block[threadIdx.x][threadIdx.y];
     }
 }
+
 __global__ void transposef(float *odata, double *idata, int width, int height)
 {
     __shared__ double block[BLOCK_DIM][BLOCK_DIM+1];
@@ -699,7 +678,7 @@ __global__ void normalize_kernel(double *g_xx, double A, double B, double *g_max
 }
 
 __global__ void normalize2_kernel(double *g_xx,double A,double B,
-    double *g_maxerr,double *g_carry,UL g_N, UL g_err_flag,
+    double *g_maxerr,double *g_carry,UL g_N,
     float *g_inv,double *g_ttp,double *g_ttmp)
 {
     const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
@@ -852,7 +831,7 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip)
 #endif
     double bigAB=6755399441055744.0;
 
-    rdft(N,1,x,ip);
+    rdft(N,x,ip);
     if( iter == last) 
     {
         cutilSafeCall(cudaMemcpy(x,g_x, sizeof(double)*N, cudaMemcpyDeviceToHost));
@@ -879,7 +858,7 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip)
 				bigAB,bigAB,g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
 	}
 	normalize2_kernel<<< N/512/128,128 >>>(&g_x[512*512],
-            bigAB,bigAB,g_maxerr,g_carry,N,error_log,g_inv,g_ttp,g_ttmp);
+            bigAB,bigAB,g_maxerr,g_carry,N,g_inv,g_ttp,g_ttmp);
         for(i=(512*512);i<(N+512*512);i+=(512*512))
             transpose<<< grid, threads >>>(&g_x[i-512*512],&g_x[i],(int) 512,(int)  512);
         
@@ -917,7 +896,7 @@ lenght.
 The estimation is made very rougly. I suposse a prime k pass cost about
 k*lengthFFT cpu time (in some units)
 */
-UL choose_length(UL n, UL N)
+int choose_length(int n)
 {
     UL bestN=1<<n;
     if (bestN < 524288)
@@ -937,7 +916,13 @@ void init_device()
         exit(2);
     }
 
+#if CUDART_VERSION >= 4000
+    cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
+    cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
+#else
     cudaSetDeviceFlags(cudaDeviceBlockingSync);
+#endif
+
     cudaSetDevice(device_number);
     // From Iain
     cudaGetDeviceProperties(&properties, device_number);
@@ -1013,7 +998,7 @@ int main(int argc, char *argv[])
                 init_device(); //msft
                 n = (q-1)/averbits +1;
                 j = power_of_two_length(n);
-                n = choose_length(j,n);
+                n = choose_length(j);
 
                 if (x != NULL) cutilSafeCall(cudaFreeHost((char *)x));
                 cutilSafeCall(cudaMallocHost((void**) &x,(n+n)*sizeof(double)));

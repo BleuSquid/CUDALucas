@@ -85,31 +85,4 @@ handler term_handler()
   return_handler;
 }
 
-# ifndef pc7300
-void clientexit(const char *msg)
-{
-  (void)fprintf(stderr, "%s: ", program_name);
-  (void)fflush(stderr);
-  perror(msg);
-  exit(errno);
-}
-
-#  ifdef NO_HERROR
-#   ifndef NO_ADDRESS
-#    define NO_ADDRESS 3
-#   endif
-void herror(const char *msg)
-{
-  static const char *(herrs[]) = {
-    "unknown error",
-    "no such host",
-    "server failure or host not known",
-    "no address for host"
-  };
-
-  (void)fprintf(stderr, "%s: %s (code %d)\n", msg, h_errno <= NO_ADDRESS ? herrs[h_errno] : herrs[0],
-        h_errno);
-}
-#  endif
-# endif
 #endif

@@ -244,7 +244,7 @@ void rdft(int n, double *a, int *ip)
         cutilSafeCall(cudaMemcpy(g_x, a, sizeof(double)*(n/2*3+512*512), cudaMemcpyHostToDevice));
     }
     cufftSafeCall(cufftExecZ2Z(plan,(cufftDoubleComplex *)g_x,(cufftDoubleComplex *)g_x, CUFFT_INVERSE));
-    rftfsub_kernel <<< n/512,128 >>> (n,g_x);
+    rftfsub_kernel <<< n/1024,256 >>> (n,g_x);
     cufftSafeCall(cufftExecZ2Z(plan,(cufftDoubleComplex *)g_x,(cufftDoubleComplex *)g_x, CUFFT_INVERSE));
     return;
 }
@@ -644,10 +644,10 @@ __global__ void normalize_kernel(double *g_xx, double A, double B, double *g_max
 		    temp0.x += carry;
 		    temp0.x *= buf[2].x;
 		    carry    = RINT(temp0.x);
-		    temp0.x  = (temp0.x-carry) * buf[3].x;
-		    
 		    temp0.y += carry;
 		    temp0.y *= buf[2].y;
+		    temp0.x  = (temp0.x-carry) * buf[3].x;
+		    
 		    carry    = RINT(temp0.y);
 		    temp0.y  = (temp0.y-carry) * buf[3].y;
 		    
@@ -659,10 +659,10 @@ __global__ void normalize_kernel(double *g_xx, double A, double B, double *g_max
 		    temp0.x += carry;
 		    temp0.x *= buf[2].z;
 		    carry    = RINT(temp0.x);
-		    temp0.x  = (temp0.x-carry) * buf[3].z;
-		    
 		    temp0.y += carry;
 		    temp0.y *= buf[2].w;
+		    temp0.x  = (temp0.x-carry) * buf[3].z;
+		    
 		    carry    = RINT(temp0.y);
 		    temp0.y  = (temp0.y-carry) * buf[3].w;
 		    
@@ -849,13 +849,13 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip)
         for(i=N;i>0;i-=(512*512))
             square_transpose<512><<< grid, threads >>>(&g_x[i],&g_x[i-512*512]);
 	if (error_log) {
-		normalize_kernel<1,512><<< N/512/128,128 >>>(&g_x[512*512],
+		normalize_kernel<1,512><<< N/512/256,256 >>>(&g_x[512*512],
 				bigAB,bigAB,g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
 	} else {
-		normalize_kernel<0,512><<< N/512/128,128 >>>(&g_x[512*512],
+		normalize_kernel<0,512><<< N/512/256,256 >>>(&g_x[512*512],
 				bigAB,bigAB,g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
 	}
-	normalize2_kernel<<< N/512/128,128 >>>(&g_x[512*512],
+	normalize2_kernel<<< N/512/256,256 >>>(&g_x[512*512],
             bigAB,bigAB,g_maxerr,g_carry,N,g_inv,g_ttp,g_ttmp);
         for(i=(512*512);i<(N+512*512);i+=(512*512))
             square_transpose<512><<< grid, threads >>>(&g_x[i-512*512],&g_x[i]);

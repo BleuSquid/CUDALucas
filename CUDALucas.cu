@@ -404,52 +404,50 @@ void bitrv2(int n, int *ip, double *a)
 // than the naive kernel below.  Note that the shared memory array is sized to 
 // (BLOCK_DIM+1)*BLOCK_DIM.  This pads each row of the 2D block in shared memory 
 // so that bank conflicts do not occur when threads address the array column-wise.
-__global__ void transpose(double *odata, double *idata, int width, int height)
+
+// This is templated because the transpose is square. We can eliminate the branching
+// from the if statements because we know height and width are identical
+template <int width>
+__global__ void square_transpose(double *odata, double *idata)
 {
     __shared__ double block[BLOCK_DIM][BLOCK_DIM+1];
 
     // read the matrix tile into shared memory
     unsigned int xIndex = blockIdx.x * BLOCK_DIM + threadIdx.x;
     unsigned int yIndex = blockIdx.y * BLOCK_DIM + threadIdx.y;
-    if((xIndex < width) && (yIndex < height))
-    {
-        unsigned int index_in = yIndex * width + xIndex;
-        block[threadIdx.y][threadIdx.x] = idata[index_in];
-    }
+    
+    unsigned int index_in = yIndex * width + xIndex;
+    block[threadIdx.y][threadIdx.x] = idata[index_in];
+
     __syncthreads();
 
     // write the transposed matrix tile to global memory
     xIndex = blockIdx.y * BLOCK_DIM + threadIdx.x;
     yIndex = blockIdx.x * BLOCK_DIM + threadIdx.y;
-    if((xIndex < height) && (yIndex < width))
-    {
-        unsigned int index_out = yIndex * height + xIndex;
-        odata[index_out] = block[threadIdx.x][threadIdx.y];
-    }
+    
+    unsigned int index_out = yIndex * width + xIndex;
+    odata[index_out] = block[threadIdx.x][threadIdx.y];
 }
 
-__global__ void transposef(float *odata, double *idata, int width, int height)
+template <int width>
+__global__ void square_transposef(float *odata, double *idata)
 {
     __shared__ double block[BLOCK_DIM][BLOCK_DIM+1];
 
     // read the matrix tile into shared memory
     unsigned int xIndex = blockIdx.x * BLOCK_DIM + threadIdx.x;
     unsigned int yIndex = blockIdx.y * BLOCK_DIM + threadIdx.y;
-    if((xIndex < width) && (yIndex < height))
-    {
-        unsigned int index_in = yIndex * width + xIndex;
-        block[threadIdx.y][threadIdx.x] = idata[index_in];
-    }
+    
+    unsigned int index_in = yIndex * width + xIndex;
+    block[threadIdx.y][threadIdx.x] = idata[index_in];
+
     __syncthreads();
 
     // write the transposed matrix tile to global memory
     xIndex = blockIdx.y * BLOCK_DIM + threadIdx.x;
     yIndex = blockIdx.x * BLOCK_DIM + threadIdx.y;
-    if((xIndex < height) && (yIndex < width))
-    {
-        unsigned int index_out = yIndex * height + xIndex;
-        odata[index_out] = block[threadIdx.x][threadIdx.y];
-    }
+    unsigned int index_out = yIndex * width + xIndex;
+    odata[index_out] = block[threadIdx.x][threadIdx.y];
 }
 
 /****************************************************************************
@@ -575,13 +573,13 @@ void init_lucas(UL q, UL n)
 
     cudaMemcpy(g_x,s_inv,sizeof(double)*n,cudaMemcpyHostToDevice);
     for(i=0;i<n;i+=(512*512))
-        transposef<<< grid, threads >>>((float *)&g_inv[i],(double *)&g_x[i],(int)  512,(int) 512);
+        square_transposef<512><<< grid, threads >>>((float *)&g_inv[i],(double *)&g_x[i]);
     cudaMemcpy(g_x,s_ttp,sizeof(double)*n,cudaMemcpyHostToDevice);
     for(i=0;i<n;i+=(512*512))
-        transpose<<< grid, threads >>>((double *)&g_ttp[i],(double *)&g_x[i],(int)  512,(int) 512);
+        square_transpose<512><<< grid, threads >>>((double *)&g_ttp[i],(double *)&g_x[i]);
     cudaMemcpy(g_x,s_ttmp,sizeof(double)*n,cudaMemcpyHostToDevice);
     for(i=0;i<n;i+=(512*512))
-        transpose<<< grid, threads >>>((double *)&g_ttmp[i],(double *)&g_x[i],(int)  512,(int) 512);
+        square_transpose<512><<< grid, threads >>>((double *)&g_ttmp[i],(double *)&g_x[i]);
     if (s_inv != NULL) free((char *)s_inv);
     if (s_ttp != NULL) free((char *)s_ttp);
     if (s_ttmp != NULL) free((char *)s_ttmp);
@@ -849,7 +847,7 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip)
         dim3 threads(BLOCK_DIM, BLOCK_DIM, 1);
 
         for(i=N;i>0;i-=(512*512))
-            transpose<<< grid, threads >>>(&g_x[i],&g_x[i-512*512],(int)  512,(int) 512);
+            square_transpose<512><<< grid, threads >>>(&g_x[i],&g_x[i-512*512]);
 	if (error_log) {
 		normalize_kernel<1,512><<< N/512/128,128 >>>(&g_x[512*512],
 				bigAB,bigAB,g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
@@ -860,7 +858,7 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip)
 	normalize2_kernel<<< N/512/128,128 >>>(&g_x[512*512],
             bigAB,bigAB,g_maxerr,g_carry,N,g_inv,g_ttp,g_ttmp);
         for(i=(512*512);i<(N+512*512);i+=(512*512))
-            transpose<<< grid, threads >>>(&g_x[i-512*512],&g_x[i],(int) 512,(int)  512);
+            square_transpose<512><<< grid, threads >>>(&g_x[i-512*512],&g_x[i]);
         
         err = 0.0;
         if(error_log)

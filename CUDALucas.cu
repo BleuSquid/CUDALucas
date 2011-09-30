@@ -416,7 +416,7 @@ void rdft(int n, double *a, int *ip) {
 // This is templated because the transpose is square. We can eliminate the branching
 // from the if statements because we know height and width are identical
 template <int width>
-__global__ void square_transpose(double *odata, double *idata)
+__global__ void square_transpose(double* __restrict__ odata, double* __restrict__ idata)
 {
     __shared__ double block[BLOCK_DIM][BLOCK_DIM+1];
 
@@ -438,7 +438,7 @@ __global__ void square_transpose(double *odata, double *idata)
 }
 
 template <int width>
-__global__ void square_transposef(float *odata, double *idata)
+__global__ void square_transposef(float* __restrict__ odata, double* __restrict__ idata)
 {
     __shared__ double block[BLOCK_DIM][BLOCK_DIM+1];
 
@@ -631,22 +631,25 @@ __global__ void normalize_kernel(double *g_xx, double A, double B, double *g_max
 		    idx.z = IDX((j + js) + 2);
 		    idx.w = IDX((j + js) + 3);
 		    buf[0].x = g_xx[idx.x];
-		    buf[0].y = g_xx[idx.y];
-		    buf[0].z = g_xx[idx.z];
-		    buf[0].w = g_xx[idx.w];
 		    buf[1].x = g_ttmp[idx.x];
-		    buf[1].y = g_ttmp[idx.y];
-		    buf[1].z = g_ttmp[idx.z];
-		    buf[1].w = g_ttmp[idx.w];
 		    buf[2].x = g_inv[idx.x];
-		    buf[2].y = g_inv[idx.y];
-		    buf[2].z = g_inv[idx.z];
-		    buf[2].w = g_inv[idx.w];
 		    buf[3].x = g_ttp[idx.x];
+
+		    buf[0].y = g_xx[idx.y];
+		    buf[1].y = g_ttmp[idx.y];
+		    buf[2].y = g_inv[idx.y];
 		    buf[3].y = g_ttp[idx.y];
+
+		    buf[0].z = g_xx[idx.z];
+		    buf[1].z = g_ttmp[idx.z];
+		    buf[2].z = g_inv[idx.z];
 		    buf[3].z = g_ttp[idx.z];
+
+		    buf[0].w = g_xx[idx.w];
+		    buf[1].w = g_ttmp[idx.w];
+		    buf[2].w = g_inv[idx.w];
 		    buf[3].w = g_ttp[idx.w];
-		    
+
 		    temp0.x  = RINT(buf[0].x*buf[1].x);
 		    temp0.y  = RINT(buf[0].y*buf[1].y);
 		    temp0.x += carry;
@@ -696,13 +699,9 @@ __global__ void normalize2_kernel(double *g_xx,double A,double B,
     double carry;
     int k,ke;
 
-    k=je;
+    k = (je == g_N) ? 0 : je;
     ke = k + stride;
-    if(je == g_N)
-    {
-        k=0;
-        ke = k + stride;
-    }
+
     carry = g_carry[threadID];
 
     for (j=k; carry != 0.0 && j<ke; j+=2)

@@ -13,6 +13,7 @@ NVCC = nvcc
 
 # uncomment the relevant line for your hardware,
 # or leave all uncommented for a generic binary
+# sm_21 is actually slower than sm_20 on sm_21 hardware...
 NVCC_ARCHES = -gencode arch=compute_13,code=sm_13
 NVCC_ARCHES += -gencode arch=compute_20,code=sm_20
 NVCC_ARCHES += -gencode arch=compute_20,code=sm_21

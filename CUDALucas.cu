@@ -165,141 +165,87 @@ w[] and ip[] are compatible with all routines.
 __global__ void rftfsub_kernel(int n, double *a)
 {
     const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
-    int j,m,nc;
     double wkr, wki, xr, xi, yr, yi,cc,d,aj,aj1,ak,ak1, *c ;
 
-    c = &a[n+n/4+512*512];
-    nc = n >> 2 ;
-    m = n >> 1;
-
-    j = threadID * 2 ;
-    if(threadID != 0)
-    {
-        wkr = 0.5 - c[nc-j/2];
-        wki = c[j/2];
-        aj = a[j];
-        aj1 = a[1+j];
-        ak = a[n-j];
-        ak1 = a[1+n-j];
-        xr = aj - ak;
-        xi = aj1 + ak1;
-        yr = wkr * xr - wki * xi;
-        yi = wkr * xi + wki * xr;
-        aj -= yr;
-        aj1 -= yi;
-        ak += yr;
-        ak1 -= yi;
-        cc = aj;
-        d = -aj1;
-        aj1 = -2.0*cc*d;
-        aj = (cc+d)*(cc-d);
-        cc = ak;
-        d = -ak1;
-        ak1 = -2.0*cc*d;
-        ak = (cc+d)*(cc-d);
-        xr = aj - ak;
-        xi = aj1 + ak1;
-        yr = wkr * xr + wki * xi;
-        yi = wkr * xi - wki * xr;
-        aj -= yr;
-        aj1 = yi - aj1;
-        ak += yr;
-        ak1 = yi - ak1;
-        a[j]=aj;
-        a[1+j]=aj1;
-        a[n-j]=ak;
-        a[1+n-j]=ak1;
-    } 
-    else 	
-    {
-        xi = a[0] - a[1];
-        a[0] += a[1];
-        a[1] = xi;
-        a[0] *= a[0];
-        if ((n & 1) == 0) a[1] *= a[1];
-        a[1] = 0.5 * (a[0] - a[1]);
-        a[0] -= a[1];
-        a[1] = -a[1];
-        cc = a[0+m];
-        d = -a[1+m];
-        a[1+m] = -2.0*cc*d;
-        a[0+m] = (cc+d)*(cc-d);
-        a[1+m] = -a[1+m];
+    if(threadID != 0) {
+	    int j = threadID * 2;
+	    c = &a[n+n/4+512*512];
+	    int nc = n >> 2 ;
+	    
+	    aj  = a[j];
+	    ak  = a[(n-j)];
+	    
+	    wkr = c[nc-j/2];
+	    wki = c[j/2];
+	    
+	    aj1 = a[1+j];
+	    ak1 = a[1+(n-j)];
+	    
+	    xr  = aj - ak;
+	    wkr = 0.5 - wkr;
+	    xi  = aj1 + ak1;
+	    yr  = wkr * xr;
+	    yi  = wki * xr;
+	    yr -= wki * xi;
+	    yi += wkr * xi;
+	    
+	    cc  = yr  - aj;
+	    d   = yi  - aj1;
+	    aj1 = 2.0 * cc;
+	    aj  = (cc+d)*(cc-d);
+	    aj1 = aj1 * d;
+	    
+	    cc  = ak  + yr;
+	    d   = ak1 - yi;
+	    ak1 = 2.0 * cc;
+	    ak  = (cc+d)*(cc-d);
+	    ak1 = ak1 * d;
+	    xr  = aj  - ak;
+	    xi  = aj1 + ak1;
+	    
+	    yr = wkr * xr;
+	    yi = -wki * xr;
+	    yr+= wki * xi;
+	    yi+= wkr * xi;
+	    
+	    aj  = aj - yr;
+	    ak  = ak + yr;
+	    aj1 = yi - aj1;
+	    ak1 = yi - ak1;
+	    
+	    a[j]=aj;
+	    a[(n-j)]=ak;
+	    a[1+j]=aj1;
+	    a[1+(n-j)]=ak1;
+	    
+    } else {
+	    int m = n >> 1;
+	    aj  = a[0];
+	    ak  = a[1];
+	    cc  = a[0+m];
+	    d   = -a[1+m];
+	    xi  = aj - ak;
+	    aj += ak;
+	    ak  = xi;
+	    aj *= aj;
+	    
+	    if ((n & 1) == 0) ak *= ak;
+	    
+	    a[1+m] = -2.0*cc;
+	    ak  = 0.5 * (aj - ak);
+	    a[1+m] *= d;
+	    aj -= ak;
+	    ak  = -ak;
+	    a[1+m] = -a[1+m];
+	    a[0+m] = (cc+d)*(cc-d);
+	    a[0] = aj;
+	    a[1] = ak;
     }
 }
 
-void rdft(int n, double *a, int *ip)
-{
-    void makewt(int nw, int *ip, double *w);
-    void makect(int nc, int *ip, double *c);
-    int nw, nc;
 
-    nw = ip[0];
-    if(nw == 0){
-        nw = n >> 2;
-        makewt(nw, ip, &a[n+512*512]);
-        nc = ip[1];
-        nc = n >> 2;
-        makect(nc, ip, &a[n+512*512] + nw);
-        cutilSafeCall(cudaMemcpy(g_x, a, sizeof(double)*(n/2*3+512*512), cudaMemcpyHostToDevice));
-    }
-    cufftSafeCall(cufftExecZ2Z(plan,(cufftDoubleComplex *)g_x,(cufftDoubleComplex *)g_x, CUFFT_INVERSE));
-    rftfsub_kernel <<< n/1024,256 >>> (n,g_x);
-    cufftSafeCall(cufftExecZ2Z(plan,(cufftDoubleComplex *)g_x,(cufftDoubleComplex *)g_x, CUFFT_INVERSE));
-    return;
-}
-
-/* -------- initializing routines -------- */
-void makewt(int nw, int *ip, double *w)
-{
-    void bitrv2(int n, int *ip, double *a);
-    int j, nwh;
-    double delta, x, y;
-
-    ip[0] = nw;
-    ip[1] = 1;
-    if (nw > 2) {
-        nwh = nw >> 1;
-        delta = atan(1.0) / nwh;
-        w[0] = 1;
-        w[1] = 0;
-        w[nwh] = cos(delta * nwh);
-        w[nwh + 1] = w[nwh];
-        if (nwh > 2) {
-            for (j = 2; j < nwh; j += 2) {
-                x = cos(delta * j);
-                y = sin(delta * j);
-                w[j] = x;
-                w[j + 1] = y;
-                w[nw - j] = y;
-                w[nw - j + 1] = x;
-            }
-            bitrv2(nw, ip + 2, w);
-        }
-    }
-}
-
-void makect(int nc, int *ip, double *c)
-{
-    int j,nch;
-    double delta;
-
-    ip[1] = nc;
-    if (nc > 1) {
-        nch = nc >> 1;
-        delta = atan(1.0) / nch;
-        c[0] = cos(delta * nch);
-        c[nch] = 0.5 * c[0];
-        for (j = 1; j < nch; j++) {
-            c[j] = 0.5 * cos(delta * j);
-            c[nc - j] = 0.5 * sin(delta * j);
-        }
-    }
-}
-
-/* -------- child routines -------- */
-void bitrv2(int n, int *ip, double *a)
-{
+/* -------- child routines for rdft() -------- */
+void bitrv2(int n, int *ip, double *a) {
     int j,j1,k,k1,l,m,m2;
     double xr,xi,yr,yi;
 
@@ -395,6 +341,68 @@ void bitrv2(int n, int *ip, double *a)
             }
         }
     }
+}
+
+void makewt(int nw, int *ip, double *w) {
+    int j, nwh;
+    double delta, x, y;
+
+    ip[0] = nw;
+    ip[1] = 1;
+    if (nw > 2) {
+        nwh = nw >> 1;
+        delta = atan(1.0) / nwh;
+        w[0] = 1;
+        w[1] = 0;
+        w[nwh] = cos(delta * nwh);
+        w[nwh + 1] = w[nwh];
+        if (nwh > 2) {
+            for (j = 2; j < nwh; j += 2) {
+                x = cos(delta * j);
+                y = sin(delta * j);
+                w[j] = x;
+                w[j + 1] = y;
+                w[nw - j] = y;
+                w[nw - j + 1] = x;
+            }
+            bitrv2(nw, ip + 2, w);
+        }
+    }
+}
+
+void makect(int nc, int *ip, double *c) {
+    int j,nch;
+    double delta;
+
+    ip[1] = nc;
+    if (nc > 1) {
+        nch = nc >> 1;
+        delta = atan(1.0) / nch;
+        c[0] = cos(delta * nch);
+        c[nch] = 0.5 * c[0];
+        for (j = 1; j < nch; j++) {
+            c[j] = 0.5 * cos(delta * j);
+            c[nc - j] = 0.5 * sin(delta * j);
+        }
+    }
+}
+
+void rdft(int n, double *a, int *ip) {
+    int nw, nc;
+
+    if(ip[0] == 0){
+        nw = n >> 2;
+        makewt(nw, ip, &a[n+512*512]);
+        nc = ip[1];
+        nc = n >> 2;
+        makect(nc, ip, &a[n+512*512] + nw);
+        cutilSafeCall(cudaMemcpy(g_x, a, sizeof(double)*(n/2*3+512*512), cudaMemcpyHostToDevice));
+    }
+    nw = ip[0];
+    cufftSafeCall(cufftExecZ2Z(plan,(cufftDoubleComplex *)g_x,(cufftDoubleComplex *)g_x, CUFFT_INVERSE));
+    rftfsub_kernel <<< n/1024,256 >>> (n,g_x);
+    cufftSafeCall(cufftExecZ2Z(plan,(cufftDoubleComplex *)g_x,(cufftDoubleComplex *)g_x, CUFFT_INVERSE));
+    return;
 }
 
 #define BLOCK_DIM 16

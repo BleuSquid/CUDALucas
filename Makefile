@@ -29,5 +29,12 @@ balance.o: balance.c
 zero.o: zero.c
 	$(CXX) $(CFLAGS) -c zero.c
 
+test: CUDALucas
+	-rm c216091 t216091
+	@echo "Iteration 10000 M( 216091 )C, 0x00000000758f6786 < expected"
+	./CUDALucas -o- -c 10000 -t 216091
+
 clean:
-	-rm *.o CUDALucas *~
+	-rm *.o  *~
+	-rm CUDALucas
+	-rm c216091 t216091

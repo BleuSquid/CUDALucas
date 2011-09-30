@@ -609,51 +609,93 @@ void init_lucas(UL q, UL n)
 }
 
 #define IDX(i) ((((i) >> 18) << 18) + (((i) & (512*512-1)) >> 9)  + ((i & 511) << 9))
-__global__ void normalize_kernel(double *g_xx,double A,double B,
-    double *g_maxerr,double *g_carry,UL g_N, UL g_err_flag,
-    float *g_inv,double *g_ttp,double *g_ttmp)
+template <bool g_err_flag, int stride>
+__global__ void normalize_kernel(double *g_xx, double A, double B, double *g_maxerr, double *g_carry,
+		float *g_inv, double *g_ttp, double *g_ttmp)
 {
     const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
-    const int stride = 512;
     const int js= stride * threadID;
-    const int je= js + stride;
-    UL j;
-    double temp0,tempErr;
-    double maxerr=0.0,err=0.0;
-    double carry;
 
-    carry = 0.0;
-    if(threadID==0) carry = - 2.0; /* this is the -2 of the LL x*x - 2 */
+    double carry = (threadID==0) ? -2.0 : 0.0; /* this is the -2 of the LL x*x - 2 */
 
-    if (g_err_flag)
-    {
-        for (j=js; j<je; j++)
-        {
-            temp0 = g_xx[IDX(j)];
-            tempErr = RINT( temp0*g_ttmp[IDX(j)] );
-            err = fabs(temp0*g_ttmp[IDX(j)]-tempErr);
-            if (err>maxerr) maxerr=err;
-            temp0 = tempErr + carry;
-            temp0 *= g_inv[IDX(j)];
-            carry = RINT(temp0);
-            g_xx[IDX(j)] = (temp0-carry) * g_ttp[IDX(j)];
-        }
+    if (g_err_flag) {
+	    double maxerr=0.0, err=0.0, tempErr, temp0;
+#pragma unroll 4
+	    for (int j=0; j < stride; j++) {
+		    temp0 = g_xx[IDX(j + js)];
+		    tempErr = RINT( temp0 * g_ttmp[IDX(j + js)] );
+		    err = fabs( (temp0 * g_ttmp[IDX(j + js)]) - tempErr);
+		    temp0 = tempErr + carry;
+		    temp0 *= g_inv[IDX(j + js)];
+		    carry = RINT(temp0);
+		    g_xx[IDX(j + js)] = (temp0-carry) * g_ttp[IDX(j + js)];
+		    if (err > maxerr) {
+			    maxerr = err;
+		    }
+	    }
+	    g_maxerr[threadID]=maxerr;
+
+    } else {
+	    double4 buf[4];
+	    int4 idx;
+	    double2 temp0;
+#pragma unroll 1
+	    for (int j=0; j < stride; j+=4) {
+		    idx.x = IDX((j + js));
+		    idx.y = IDX((j + js) + 1);
+		    idx.z = IDX((j + js) + 2);
+		    idx.w = IDX((j + js) + 3);
+		    buf[0].x = g_xx[idx.x];
+		    buf[0].y = g_xx[idx.y];
+		    buf[0].z = g_xx[idx.z];
+		    buf[0].w = g_xx[idx.w];
+		    buf[1].x = g_ttmp[idx.x];
+		    buf[1].y = g_ttmp[idx.y];
+		    buf[1].z = g_ttmp[idx.z];
+		    buf[1].w = g_ttmp[idx.w];
+		    buf[2].x = g_inv[idx.x];
+		    buf[2].y = g_inv[idx.y];
+		    buf[2].z = g_inv[idx.z];
+		    buf[2].w = g_inv[idx.w];
+		    buf[3].x = g_ttp[idx.x];
+		    buf[3].y = g_ttp[idx.y];
+		    buf[3].z = g_ttp[idx.z];
+		    buf[3].w = g_ttp[idx.w];
+		    
+		    temp0.x  = RINT(buf[0].x*buf[1].x);
+		    temp0.y  = RINT(buf[0].y*buf[1].y);
+		    temp0.x += carry;
+		    temp0.x *= buf[2].x;
+		    carry    = RINT(temp0.x);
+		    temp0.x  = (temp0.x-carry) * buf[3].x;
+		    
+		    temp0.y += carry;
+		    temp0.y *= buf[2].y;
+		    carry    = RINT(temp0.y);
+		    temp0.y  = (temp0.y-carry) * buf[3].y;
+		    
+		    g_xx[idx.x] = temp0.x;
+		    g_xx[idx.y] = temp0.y;
+		    
+		    temp0.x  = RINT(buf[0].z*buf[1].z);
+		    temp0.y  = RINT(buf[0].w*buf[1].w);
+		    temp0.x += carry;
+		    temp0.x *= buf[2].z;
+		    carry    = RINT(temp0.x);
+		    temp0.x  = (temp0.x-carry) * buf[3].z;
+		    
+		    temp0.y += carry;
+		    temp0.y *= buf[2].w;
+		    carry    = RINT(temp0.y);
+		    temp0.y  = (temp0.y-carry) * buf[3].w;
+		    
+		    g_xx[idx.z] = temp0.x;
+		    g_xx[idx.w] = temp0.y;
+		    
+	    }
     }
-    else
-    {
-        for (j=js; j<je; j++)
-        {
-            temp0 = g_xx[IDX(j)];
-            tempErr = RINT( temp0*g_ttmp[IDX(j)] );
-            temp0 = tempErr + carry;
-            temp0 *= g_inv[IDX(j)];
-            carry = RINT(temp0);
-            g_xx[IDX(j)] = (temp0-carry) * g_ttp[IDX(j)];
-        }
-    }
+    
     g_carry[threadID]=carry;
-    if (g_err_flag)
-        g_maxerr[threadID]=maxerr;
 }
 
 __global__ void normalize2_kernel(double *g_xx,double A,double B,
@@ -829,9 +871,14 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip)
 
         for(i=N;i>0;i-=(512*512))
             transpose<<< grid, threads >>>(&g_x[i],&g_x[i-512*512],(int)  512,(int) 512);
-        normalize_kernel<<< N/512/128,128 >>>(&g_x[512*512],
-            bigAB,bigAB,g_maxerr,g_carry,N,error_log,g_inv,g_ttp,g_ttmp);
-        normalize2_kernel<<< N/512/128,128 >>>(&g_x[512*512],
+	if (error_log) {
+		normalize_kernel<1,512><<< N/512/128,128 >>>(&g_x[512*512],
+				bigAB,bigAB,g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
+	} else {
+		normalize_kernel<0,512><<< N/512/128,128 >>>(&g_x[512*512],
+				bigAB,bigAB,g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
+	}
+	normalize2_kernel<<< N/512/128,128 >>>(&g_x[512*512],
             bigAB,bigAB,g_maxerr,g_carry,N,error_log,g_inv,g_ttp,g_ttmp);
         for(i=(512*512);i<(N+512*512);i+=(512*512))
             transpose<<< grid, threads >>>(&g_x[i-512*512],&g_x[i],(int) 512,(int)  512);

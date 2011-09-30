@@ -13,11 +13,11 @@ Assuming that you've setup your CUDA environment all ready...
 # Installation (Linux, CUDA >= 3.0 (might work on older releases, too)) #
 #########################################################################
 
-Rename makefile.linux to Makefile
+Makefile assumes that nvcc is in the path. Redefine NVCC if nvcc is not in your path.
+Likewise, add the appropriate -I includes and -L libdirs to the COMMON_INCLUDES and
+COMMON_LIBS, respectively.
 
-Adjust the path to your CUDA installation as desribed above in "Makefile" and run 'make'.
-
-
+To build, just run "make"
 
 #########################################################################
 # Installation  Windows

@@ -1,4 +1,6 @@
-NVIDIA_SDK = $(HOME)/NVIDIA_GPU_Computing_SDK
+#!/usr/bin/make -f
+
+# Linux Makefile for CUDALucas
 
 COMMON_INCLUDES =
 COMMON_DEFINES =
@@ -13,7 +15,7 @@ NVCC = nvcc
 # or leave all uncommented for a generic binary
 NVCC_ARCHES = -gencode arch=compute_13,code=sm_13
 NVCC_ARCHES += -gencode arch=compute_20,code=sm_20
-#NVCC_ARCHES += -gencode arch=compute_20,code=sm_21
+NVCC_ARCHES += -gencode arch=compute_20,code=sm_21
 
 NVCC_CFLAGS = -O3 $(COMMON_INCLUDES) $(COMMON_DEFINES) $(NVCC_ARCHES) --compiler-options="$(CFLAGS) -fno-strict-aliasing" -use_fast_math --ptxas-options="-v"
 

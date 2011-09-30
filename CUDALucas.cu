@@ -849,10 +849,10 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip)
         for(i=N;i>0;i-=(512*512))
             square_transpose<512><<< grid, threads >>>(&g_x[i],&g_x[i-512*512]);
 	if (error_log) {
-		normalize_kernel<1,512><<< N/512/256,256 >>>(&g_x[512*512],
+		normalize_kernel<1,512><<< N/512/128,128 >>>(&g_x[512*512],
 				bigAB,bigAB,g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
 	} else {
-		normalize_kernel<0,512><<< N/512/256,256 >>>(&g_x[512*512],
+		normalize_kernel<0,512><<< N/512/128,128 >>>(&g_x[512*512],
 				bigAB,bigAB,g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
 	}
 	normalize2_kernel<<< N/512/256,256 >>>(&g_x[512*512],

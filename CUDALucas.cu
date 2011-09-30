@@ -1,7 +1,7 @@
 static const char RCSMacLucasFFTW_c[] = "$Id: MacLucasFFTW.c,v 8.1 2007/06/23 22:33:35 wedgingt Exp $ wedgingt@acm.org";
 const char *RCSprogram_id = RCSMacLucasFFTW_c;
 const char *program_name = "CUDALucas"; /* for perror() and similar */
-const char program_revision[] = "$Revision: 1.3alpha_eoc$";
+const char program_revision[] = "$Revision: 1.3alpha_ah42$";
 char version[sizeof(RCSMacLucasFFTW_c) + sizeof(program_revision)]; /* overly long, but certain */
 
 /* CUDALucas.c
@@ -84,7 +84,7 @@ Please, let me know any problem.
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cufft.h>
-#include <cutil_inline.h>
+#include "cuda_safecalls.h"
 
 /* some include needed for mers package */
 #include "setup.h"

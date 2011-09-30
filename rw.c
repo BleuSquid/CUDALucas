@@ -45,6 +45,12 @@ static const char Options[] =
 #include <sys/time.h>
 #endif
 
+#ifdef _MSC_VER
+#define UNLINK _unlink
+#else
+#define UNLINK unlink
+#endif
+
 static timeval start_time;
 
 #if defined(USE_RUSAGE)
@@ -595,7 +601,7 @@ int check_point(UL q, UL n, UL j, double err, double *x)
   if ((chkpnt_fp = fopen(chkpnt_cfn, "rb")) != NULL)
   {
     fclose(chkpnt_fp);
-    _unlink(chkpnt_tfn);
+    UNLINK(chkpnt_tfn);
     rename(chkpnt_cfn, chkpnt_tfn);
   }
   if ((chkpnt_fp = fopen(chkpnt_cfn, "wb")) == NULL)
@@ -715,8 +721,8 @@ static void close_archive(FILE *archfp, FILE *outfp, FILE *dupfp)
       note_archive_failure(stderr, last_errno);
     return;
   }
-  _unlink(chkpnt_cfn);
-  _unlink(chkpnt_tfn);
+  UNLINK(chkpnt_cfn);
+  UNLINK(chkpnt_tfn);
 }
 
 void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, double lo,

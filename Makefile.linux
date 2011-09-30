@@ -1,13 +1,33 @@
 NVIDIA_SDK = $(HOME)/NVIDIA_GPU_Computing_SDK
+
+COMMON_INCLUDES = -I/usr/local/include -I$(NVIDIA_SDK)/C/common/inc
+COMMON_DEFINES =  -DMERS_PACKAGE -DBIT_SIEVE -DTESTING_SMALL_EXPONENTS -DSIEVE_SIZE_IN_BYTES=32 -DNUM_SMALL_PRIMES=32768
+
+CXX = g++
+CFLAGS = -O3 $(COMMON_INCLUDES) $(COMMON_DEFINES)
+
+NVCC = nvcc
+
+# uncomment the relevant line for your hardware,
+# or leave all uncommented for a generic binary
+NVCC_ARCHES = -gencode arch=compute_13,code=sm_13
+NVCC_ARCHES += -gencode arch=compute_20,code=sm_20
+#NVCC_ARCHES += -gencode arch=compute_20,code=sm_21
+
+NVCC_CFLAGS = -O3 $(COMMON_INCLUDES) $(COMMON_DEFINES) $(NVCC_ARCHES) --compiler-options="$(CFLAGS) -fno-strict-aliasing" -use_fast_math --ptxas-options="-v"
+
 CUDALucas: CUDALucas.o setup.o rw.o balance.o zero.o
-	g++ -fPIC -O3 -o CUDALucas CUDALucas.o setup.o rw.o balance.o zero.o -L/usr/local/cuda/lib64 -lcudart -L/usr/local/cuda/lib64 -lcufft  -lm
+	$(CXX) -fPIC -O3 -o CUDALucas CUDALucas.o setup.o rw.o balance.o zero.o -L/usr/local/cuda/lib64 -lcudart -L/usr/local/cuda/lib64 -lcufft -lm
 CUDALucas.o: CUDALucas.cu
-	/usr/local/cuda/bin/nvcc -O3 -DMERS_PACKAGE -DBIT_SIEVE -DTESTING_SMALL_EXPONENTS -DSIEVE_SIZE_IN_BYTES=32 -DNUM_SMALL_PRIMES=32768 -I/usr/local/include  -I$(NVIDIA_SDK)/C/common/inc CUDALucas.cu  -L/usr/local/lib64  -arch=sm_13 -c
-setup.o: 
-	/usr/local/cuda/bin/nvcc -DMERS_PACKAGE -DBIT_SIEVE -DTESTING_SMALL_EXPONENTS -DSIEVE_SIZE_IN_BYTES=32 -DNUM_SMALL_PRIMES=32768 -O3 -I/usr/local/include setup.cu  -L/usr/local/lib64  -arch=sm_13 -c
-rw.o: 
-	/usr/local/cuda/bin/nvcc -DMERS_PACKAGE -DBIT_SIEVE -DTESTING_SMALL_EXPONENTS -DSIEVE_SIZE_IN_BYTES=32 -DNUM_SMALL_PRIMES=32768 -O3 -I/usr/local/include rw.cu  -L/usr/local/lib64  -arch=sm_13 -c
-balance.o: 
-	/usr/local/cuda/bin/nvcc -DMERS_PACKAGE -DBIT_SIEVE -DTESTING_SMALL_EXPONENTS -DSIEVE_SIZE_IN_BYTES=32 -DNUM_SMALL_PRIMES=32768 -O3 -I/usr/local/include balance.cu  -L/usr/local/lib64  -arch=sm_13 -c
-zero.o:
-	/usr/local/cuda/bin/nvcc -DMERS_PACKAGE -DBIT_SIEVE -DTESTING_SMALL_EXPONENTS -DSIEVE_SIZE_IN_BYTES=32 -DNUM_SMALL_PRIMES=32768 -O3 -I/usr/local/include zero.cu  -L/usr/local/lib64  -arch=sm_13 -c
+	$(NVCC) $(NVCC_CFLAGS) -c CUDALucas.cu
+setup.o: setup.c
+	$(CXX) $(CFLAGS) -c setup.c
+rw.o: rw.c
+	$(CXX) $(CFLAGS) -c rw.c
+balance.o: balance.c
+	$(CXX) $(CFLAGS) -c balance.c
+zero.o: zero.c
+	$(CXX) $(CFLAGS) -c zero.c
+
+clean:
+	-rm *.o CUDALucas *~

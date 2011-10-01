@@ -7,7 +7,7 @@ COMMON_DEFINES =
 COMMON_LIBS = 
 
 CXX = g++
-#CXX = g++-4.6 -floop-parallelize-all -ftree-parallelize-loops=4 -ftree-loop-distribution
+#CXX = g++-4.6 -floop-parallelize-all -ftree-parallelize-loops=4 -ftree-loop-distribution -Wall -Wextra -pedantic
 CFLAGS = -O3 $(COMMON_INCLUDES) $(COMMON_DEFINES)
 
 NVCC = nvcc
@@ -23,15 +23,15 @@ NVCC_CFLAGS = -O3 $(COMMON_INCLUDES) $(COMMON_DEFINES) $(NVCC_ARCHES) --compiler
 
 CUDALucas: CUDALucas.o setup.o rw.o balance.o zero.o
 	$(CXX) -fPIC -O3 -o CUDALucas CUDALucas.o setup.o rw.o balance.o zero.o $(COMMON_LIBS) -Wl,-O1 -Wl,--as-needed -lcudart -lcufft -lm
-CUDALucas.o: CUDALucas.cu
+CUDALucas.o: CUDALucas.cu cuda_safecalls.h setup.h balance.h rw.h
 	$(NVCC) $(NVCC_CFLAGS) -c CUDALucas.cu
-setup.o: setup.c
+setup.o: setup.c setup.h
 	$(CXX) $(CFLAGS) -c setup.c
-rw.o: rw.c
+rw.o: rw.c rw.h setup.h
 	$(CXX) $(CFLAGS) -c rw.c
-balance.o: balance.c
+balance.o: balance.c balance.h globals.h setup.h
 	$(CXX) $(CFLAGS) -c balance.c
-zero.o: zero.c
+zero.o: zero.c zero.h setup.h
 	$(CXX) $(CFLAGS) -c zero.c
 
 test: CUDALucas
@@ -40,6 +40,6 @@ test: CUDALucas
 	./CUDALucas -o- -c 10000 -t 216091
 
 clean:
-	-rm *.o  *~
+	-rm *.o *~
 	-rm CUDALucas
 	-rm c216091 t216091

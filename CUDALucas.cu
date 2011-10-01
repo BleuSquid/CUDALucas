@@ -1068,7 +1068,7 @@ int main(int argc, char *argv[])
                 if ((j % output_frequency) == 0) 
                 { 
                     cutilSafeCall(cudaMemcpy(x,g_x, sizeof(double)*n, cudaMemcpyDeviceToHost));
-					printbits(x, q, n, (q > 64L) ? 64L : q, b, c, high, low, version, outfp, dupfp, output_frequency, j);
+					printbits(x, q, n, (int)((q > 64L) ? 64L : q), b, c, high, low, version, outfp, dupfp, output_frequency, j);
                 }
             }
             cufftSafeCall(cufftDestroy(plan));
@@ -1082,7 +1082,7 @@ int main(int argc, char *argv[])
                 return((check_point(q, n, j, err, x) <= 0) ? errno : 0);
             }
         } while (restarting);
-        printbits(x, q, n, (q > 64L) ? 64L : q, b, c, high, low, version, outfp, dupfp, 0, j, true);
+        printbits(x, q, n, (int)((q > 64L) ? 64L : q), b, c, high, low, version, outfp, dupfp, 0, j, true);
     }
     return(0);
 }

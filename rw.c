@@ -98,7 +98,7 @@ void print_time_from_seconds(int sec)
 void print_time (int iterations, int current, int total)
 {
   timeval end_time;
-  unsigned long long diff, diff1;
+  unsigned long diff, diff1;
 #if defined(RUSAGE_SELF)
   struct rusage ru;
 #endif
@@ -115,7 +115,7 @@ void print_time (int iterations, int current, int total)
   diff1 = 1000000*diff + end_time.tv_usec - start_time.tv_usec;
   start_time = end_time;
   print_time_from_seconds(diff);
-  printf(" real", diff);
+  printf(" real");
   if(iterations)
     printf(", %3.4f ms/iter", diff1/1000.0/iterations);
   if(total)
@@ -509,8 +509,6 @@ get_next_q: /* all but one goto to here are just before a return if (*q < start_
     else goto get_next_q; /* would be return(0) except that there might be more command line to parse */
   }
 
-  size_t retval;
-
   if (partial == 0 && !ferror(*infp))
   { /* check for binary checkpoint format */
     int r = read_check_point(*infp, q, n, j, err, x);
@@ -714,7 +712,7 @@ static void close_archive(FILE *archfp, FILE *outfp, FILE *dupfp)
   UNLINK(chkpnt_tfn);
 }
 
-void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, double lo,
+void printbits(double *x, UL q, UL n, int totalbits, UL b, UL c, double hi, double lo,
      const char *version_info, FILE *outfp, FILE *dupfp, int iterations, int current_iteration, bool archive)
 {
   FILE *archfp = NULL;

@@ -41,6 +41,16 @@ extern const char program_revision[];
 #  endif
 # endif
 
+#if defined(__GNUC__)
+# define ATTRIBUTE_PURE		__attribute__((pure))
+# define ATTRIBUTE_CONST	__attribute__((const))
+# define ATTRIBUTE_NORETURN	__attribute__((noreturn))
+#else
+# define ATTRIBUTE_PURE
+# define ATTRIBUTE_CONST
+# define ATTRIBUTE_NORETURN
+#endif
+
 # include <stdio.h>
 # include <ctype.h>
 
@@ -83,7 +93,8 @@ extern const char program_revision[];
 
 #ifdef _IOLBF
 # define setlinebuf(stream) setvbuf(stream, NULL, _IOLBF, BUFSIZ)
-extern int setvbuf (FILE *stream, char *buffer, int type, size_t size);
+// Why do we need this here? We've already included stdio.h.
+//extern int setvbuf (FILE *stream, char *buffer, int type, size_t size);
 #endif
 
 typedef unsigned short US;
@@ -108,7 +119,7 @@ extern volatile char shouldTerminate;   /* Flag: have we gotten a SIGTERM ? */
 #define CHKPNT_FILENAME_LENGTH (DIGITS_IN_LONG + 2)
 /* + 2 for c (or t or ...) and \0 */
 
-extern const char *presence (const char *string, int ch); /* same as BSD index() and SysV strchr() */
+ATTRIBUTE_PURE extern const char *presence (const char *string, int ch); /* same as BSD index() and SysV strchr() */
 extern void setup (void);
 
 # if defined(linux) || defined(__ultrix) || defined(_AIX) || defined(__hpux) || defined(macintosh) || defined(_MSC_VER) || defined(__APPLE__) || defined(_MSC_VER)

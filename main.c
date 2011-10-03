@@ -467,9 +467,9 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip)
                 if (c_maxerr[i]>err) err=c_maxerr[i];
         }
     }
-#ifdef _MSC_VER
+//#ifdef _MSC_VER
     free (c_maxerr);
-#endif
+//#endif
     return(err);
 }
 

@@ -1,5 +1,5 @@
-#ifndef DRCSsetup_h
-#define DRCSsetup_h "$Id: setup.h,v 8.1 2007/06/23 22:33:35 wedgingt Exp $"
+#ifndef setup_h
+#define setup_h 1
 
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
@@ -145,4 +145,4 @@ extern handler term_handler (int huh);
 extern handler term_handler (void);
 # endif
 
-#endif /* ifndef DRCSsetup_h */
+#endif /* ifndef setup_h */

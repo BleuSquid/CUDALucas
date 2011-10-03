@@ -8,9 +8,6 @@
   [other lines that change flags given on command line?]
  */
 
-static const char RCSrw_c[] = "$Id: rw.c,v 8.1 2007/06/23 22:33:35 wedgingt Exp $ by wedgingt@acm.org";
-static const char RCSrw_revision[] = "$Revision: 8.1 $";
-
 static const char Options[] =
 "-\t\tread stdin (default if no files or exponents given)\n"
 "-b\t\tuse binary Lucas-Lehmer checkpoint files\n"
@@ -57,8 +54,6 @@ static timeval start_time;
 # include <sys/resource.h>
 int getrusage (int who, struct rusage *usage);
 #endif
-
-extern const char *RCSprogram_id; /* RCS Id info for .c file with main() in it */
 
 /* Checkpoints are the save files for the Lucas-Lehmer test programs, */
 /*  mersenne1, mersenne2, and fftlucas */
@@ -182,13 +177,12 @@ int read_check_point(FILE * infp, UL * q, UL * n, UL * j, double * err, double *
   return 0;
 }
 
-
 /* Get some input and/or parse the command line (since exponents can be on the command line) */
 /*  return values: */
 /*  0: no more input; 1: trouble; 2: resuming from a partial (RI) result; 3: other data for exponent */
 int input( int argc, char **argv
          , EXPONENT *q, UL *n, UL *j, double *err, double **x, EXPONENT last, char *M
-         , FILE **infp, FILE **outfp, FILE **dupfp)
+         , FILE **infp, FILE **outfp, FILE **dupfp, const char *version_info)
 {
   if (q == NULL || M == NULL || infp == NULL || outfp == NULL || dupfp == NULL) return 1;
 
@@ -368,8 +362,8 @@ get_next_q: /* all but one goto to here are just before a return if (*q < start_
             print_times = 1;
             break;
           case 'v':
-            fprintf(stderr, "%s version information:\n %s\n", program_name, RCSprogram_id);
-            break;
+            fprintf(stderr, "%s version information:\n %s\n", program_name, version_info);
+            exit(0);
           default:
             fprintf(stderr, "%s: unknown option: '%s'\n%s", program_name, argv[arg], Options);
             exit(1);
@@ -722,18 +716,14 @@ void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, doubl
   if (version_info == NULL || version_info[0] == '\0')
   {
     fprintf(stderr, "%s: printbits() called with no version info; bug\n", program_name);
-    fprintf(stderr, "\t%s\n", RCSrw_c);
     if (outfp != NULL && outfp != stderr)
     {
       fprintf(outfp, "%s: printbits() called with no version info; bug\n", program_name);
-      fprintf(outfp, "\t%s\n", RCSrw_c);
     }
     if (dupfp != NULL && dupfp != stderr)
     {
       fprintf(dupfp, "%s: printbits() called with no version info; bug\n", program_name);
-      fprintf(dupfp, "\t%s\n", RCSrw_c);
     }
-    version_info = RCSrw_revision;
   }
 
   if(!archive) fprintf(outfp,"Iteration %d ", current_iteration);

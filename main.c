@@ -1,8 +1,6 @@
-static const char RCSMacLucasFFTW_c[] = "$Id: MacLucasFFTW.c,v 8.1 2007/06/23 22:33:35 wedgingt Exp $ wedgingt@acm.org";
-const char *RCSprogram_id = RCSMacLucasFFTW_c;
 const char *program_name = "CUDALucas"; /* for perror() and similar */
 const char program_revision[] = "$Revision: 1.3alpha_ah42$";
-char version[sizeof(RCSMacLucasFFTW_c) + sizeof(program_revision)]; /* overly long, but certain */
+char version[sizeof(program_name) + sizeof(program_revision)]; /* overly long, but certain */
 
 /* CUDALucas.c
 Shoichiro Yamada Oct. 2010 */
@@ -570,7 +568,7 @@ int main(int argc, char *argv[])
     {
         do /* while (restarting) */
         {
-            switch ((restarting != 0) ? 3 : input(argc, argv, &q, &n, &j, &err, &x, last, &M, &infp, &outfp, &dupfp))
+            switch ((restarting != 0) ? 3 : input(argc, argv, &q, &n, &j, &err, &x, last, &M, &infp, &outfp, &dupfp, version))
             {
             case 0: /* no more input */
                 printf("no more input\n");

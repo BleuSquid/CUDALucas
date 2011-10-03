@@ -1,5 +1,5 @@
-#ifndef DRCSrw_h
-# define DRCSrw_h "$Id: rw.h,v 8.1 2007/06/23 22:33:35 wedgingt Exp $"
+#ifndef rw_h
+# define rw_h 1
 
 # include <ctype.h>
 
@@ -25,5 +25,5 @@ extern int check_point (UL q, UL n, UL j, double err, double *x);
 extern void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, double lo,
     const char *version_info, FILE *outfp, FILE *dupfp, int iterations, int current_iteration, bool archive = false);
 extern int input (int argc, char **argv, EXPONENT *q, UL *n, UL *j, double *err, double **x,
-                 EXPONENT last, char *M, FILE **infp, FILE **outfp, FILE **dupfp);
-#endif /* ifndef DRCSrw_h */
+                 EXPONENT last, char *M, FILE **infp, FILE **outfp, FILE **dupfp, const char *version_info);
+#endif /* ifndef rw_h */

@@ -1,5 +1,3 @@
-static const char RCSbalance_c[] = "$Id: balance.c,v 8.1 2007/06/23 22:33:35 wedgingt Exp $";
-
 #include "setup.h"
 #include "balance.h"
 #include "globals.h"

@@ -1,8 +1,4 @@
-static const char RCSsetup_c[] = "$Id: setup.c,v 8.1 2007/06/23 22:33:35 wedgingt Exp $";
-
 #include "setup.h"
-
-static const char RCSsetup_h[] = DRCSsetup_h;
 
 #ifndef vms
 volatile char shouldTerminate = 0; /* Flag: have we gotten a SIGTERM ? */

@@ -782,7 +782,7 @@ void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, doubl
   int j = 0;
   do
   {
-    int k = (long)(ceil((double)q*(j + 1)/n) - ceil((double)q*j/n));
+    UL k = (long)(ceil((double)q*(j + 1)/n) - ceil((double)q*j/n));
     if (k > totalbits) k = totalbits;
     totalbits -= k;
     int word = (long)x[j];

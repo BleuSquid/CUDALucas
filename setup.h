@@ -99,7 +99,12 @@ extern const char program_revision[];
 
 typedef unsigned short US;
 
+// On 64-bit linux, int is the same size as long int on 32-bit.
+#if defined(linux) && defined(__x86_64__)
+typedef unsigned int UL;
+#else
 typedef unsigned long int UL;
+#endif
 
 typedef void handler;
 #define return_handler return

@@ -36,8 +36,8 @@ zero.o: zero.c zero.h setup.h
 
 test: CUDALucas
 	-rm c216091 t216091
-	@echo "Iteration 10000 M( 216091 )C, 0x00000000758f6786 < expected"
-	./CUDALucas -o- -c 10000 -t 216091
+	@echo "Iteration 1000 M( 216091 )C, 0xd222ff4c0604633e < expected"
+	./CUDALucas -o- -c 1000 -t 216091
 
 clean:
 	-rm *.o *~

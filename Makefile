@@ -7,7 +7,7 @@ COMMON_DEFINES =
 COMMON_LIBS = 
 
 CXX = g++
-CXX = g++-4.6 -floop-parallelize-all -ftree-parallelize-loops=4 -ftree-loop-distribution -Wall -Wextra -pedantic -march=native
+#CXX = g++-4.6 -floop-parallelize-all -ftree-parallelize-loops=4 -ftree-loop-distribution -Wall -Wextra -pedantic -march=native
 CFLAGS = -O3 $(COMMON_INCLUDES) $(COMMON_DEFINES)
 
 NVCC = nvcc

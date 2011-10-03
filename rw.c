@@ -712,7 +712,7 @@ static void close_archive(FILE *archfp, FILE *outfp, FILE *dupfp)
   UNLINK(chkpnt_tfn);
 }
 
-void printbits(double *x, UL q, UL n, int totalbits, UL b, UL c, double hi, double lo,
+void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, double lo,
      const char *version_info, FILE *outfp, FILE *dupfp, int iterations, int current_iteration, bool archive)
 {
   FILE *archfp = NULL;

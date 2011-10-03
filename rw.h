@@ -22,7 +22,7 @@ extern void print_time (int iterations = 0, int current = 0, int total = 0);
 #   define FACTOR char
 #   define EXPONENT UL
 extern int check_point (UL q, UL n, UL j, double err, double *x);
-extern void printbits(double *x, UL q, UL n, int totalbits, UL b, UL c, double hi, double lo,
+extern void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, double lo,
     const char *version_info, FILE *outfp, FILE *dupfp, int iterations, int current_iteration, bool archive = false);
 extern int input (int argc, char **argv, EXPONENT *q, UL *n, UL *j, double *err, double **x,
                  EXPONENT last, char *M, FILE **infp, FILE **outfp, FILE **dupfp);

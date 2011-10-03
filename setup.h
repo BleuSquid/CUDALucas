@@ -35,8 +35,20 @@ extern const char program_revision[];
 #     undef BIG_LONG
 #     define BIG_LONG long long int
 #     undef SIZEOF_UL
-#     define SIZEOF_UL 8
+#     define SIZEOF_UL __SIZEOF_LONG_LONG__
 #    endif
+#   elif defined(__x86_64__)
+/* 64-bit Unices - int is the same size as UL on 32 bit OS. We just use INT instead */
+#     undef SIZEOF_UL
+#     undef PRINTF_FMT_UL
+#     undef SCANF_FMT_UL
+#     undef PRINTF_FMT_ONE
+#     undef SCANF_FMT_ONE
+#     define SIZEOF_UL __SIZEOF_INT__
+#     define PRINTF_FMT_UL "%u"
+#     define SCANF_FMT_UL " %u"
+#     define PRINTF_FMT_ONE "RI q %u n %u j %u err %f sBL %ld sD %ld RHM %ld\n"
+#     define SCANF_FMT_ONE " RI q %u n %u j %u err %lf sBL %d sD %d RHM %ld\n"
 #   endif
 #  endif
 # endif

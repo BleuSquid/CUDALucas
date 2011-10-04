@@ -28,23 +28,20 @@ of gettimeofday().
 
 #include <winsock2.h>
 
-__inline int gettimeofday(struct timeval *tv, struct timezone *)
-{
-  static LARGE_INTEGER frequency;
-  static int frequency_flag = 0;
-
-  if(!frequency_flag)
-  {
-    QueryPerformanceFrequency(&frequency);
-    frequency_flag = 1;
-  }
-
-  if(tv)
-  {
-    LARGE_INTEGER counter;
-    QueryPerformanceCounter(&counter);
-    tv->tv_sec =  (long) (counter.QuadPart / frequency.QuadPart);
-    tv->tv_usec = (long)((counter.QuadPart % frequency.QuadPart) / ((double)frequency.QuadPart / 1000000.0));
-  }
-  return 0;
+__inline int gettimeofday(struct timeval *tv, struct timezone *) {
+	static LARGE_INTEGER frequency;
+	static int frequency_flag = 0;
+	
+	if(!frequency_flag) {
+		QueryPerformanceFrequency(&frequency);
+		frequency_flag = 1;
+	}
+	
+	if(tv) {
+		LARGE_INTEGER counter;
+		QueryPerformanceCounter(&counter);
+		tv->tv_sec =  (long) (counter.QuadPart / frequency.QuadPart);
+		tv->tv_usec = (long)((counter.QuadPart % frequency.QuadPart) / ((double)frequency.QuadPart / 1000000.0));
+	}
+	return 0;
 }

@@ -29,52 +29,48 @@ inline cudaError cutilDeviceReset()
 // NOTE: "%s(%i) : " allows Visual Studio to directly jump to the file at the right line
 // when the user double clicks on the error line in the Output pane. Like any compile error.
 
-inline void __cudaSafeCallNoSync( cudaError err, const char *file, const int line )
-{
-    if( cudaSuccess != err) {
-        fprintf(stderr, "%s(%i) : cudaSafeCallNoSync() Runtime API error %d : %s.\n",
-                file, line, (int)err, cudaGetErrorString( err ) );
-        exit(-1);
-    }
+inline void __cudaSafeCallNoSync( cudaError err, const char *file, const int line ) {
+	if( cudaSuccess != err) {
+		fprintf(stderr, "%s(%i) : cudaSafeCallNoSync() Runtime API error %d : %s.\n",
+				file, line, (int)err, cudaGetErrorString( err ) );
+		exit(-1);
+	}
 }
 
-inline void __cudaSafeCall( cudaError err, const char *file, const int line )
-{
-    if( cudaSuccess != err) {
-                fprintf(stderr, "%s(%i) : cudaSafeCall() Runtime API error %d: %s.\n",
-                file, line, (int)err, cudaGetErrorString( err ) );
-        exit(-1);
-    }
+inline void __cudaSafeCall( cudaError err, const char *file, const int line ) {
+	if( cudaSuccess != err) {
+		fprintf(stderr, "%s(%i) : cudaSafeCall() Runtime API error %d: %s.\n",
+				file, line, (int)err, cudaGetErrorString( err ) );
+		exit(-1);
+	}
 }
 
-inline void __cudaSafeThreadSync( const char *file, const int line )
-{
-    cudaError err = cutilDeviceSynchronize();
-    if ( cudaSuccess != err) {
-        fprintf(stderr, "%s(%i) : cudaDeviceSynchronize() Runtime API error %d: %s.\n",
-                file, line, (int)err, cudaGetErrorString( err ) );
-        exit(-1);
-    }
+inline void __cudaSafeThreadSync( const char *file, const int line ) {
+	cudaError err = cutilDeviceSynchronize();
+	if ( cudaSuccess != err) {
+		fprintf(stderr, "%s(%i) : cudaDeviceSynchronize() Runtime API error %d: %s.\n",
+				file, line, (int)err, cudaGetErrorString( err ) );
+		exit(-1);
+	}
 }
 
-inline void __cufftSafeCall( cufftResult err, const char *file, const int line )
-{
-    if( CUFFT_SUCCESS != err) {
-        fprintf(stderr, "%s(%i) : cufftSafeCall() CUFFT error %d: ",
-                file, line, (int)err);
-        switch (err) {
-            case CUFFT_INVALID_PLAN:   fprintf(stderr, "CUFFT_INVALID_PLAN\n");
-            case CUFFT_ALLOC_FAILED:   fprintf(stderr, "CUFFT_ALLOC_FAILED\n");
-            case CUFFT_INVALID_TYPE:   fprintf(stderr, "CUFFT_INVALID_TYPE\n");
-            case CUFFT_INVALID_VALUE:  fprintf(stderr, "CUFFT_INVALID_VALUE\n");
-            case CUFFT_INTERNAL_ERROR: fprintf(stderr, "CUFFT_INTERNAL_ERROR\n");
-            case CUFFT_EXEC_FAILED:    fprintf(stderr, "CUFFT_EXEC_FAILED\n");
-            case CUFFT_SETUP_FAILED:   fprintf(stderr, "CUFFT_SETUP_FAILED\n");
-            case CUFFT_INVALID_SIZE:   fprintf(stderr, "CUFFT_INVALID_SIZE\n");
-            case CUFFT_UNALIGNED_DATA: fprintf(stderr, "CUFFT_UNALIGNED_DATA\n");
-            default: fprintf(stderr, "CUFFT Unknown error code\n");
-        }
-        exit(-1);
-    }
+inline void __cufftSafeCall( cufftResult err, const char *file, const int line ) {
+	if( CUFFT_SUCCESS != err) {
+		fprintf(stderr, "%s(%i) : cufftSafeCall() CUFFT error %d: ",
+				file, line, (int)err);
+		switch (err) {
+			case CUFFT_INVALID_PLAN:   fprintf(stderr, "CUFFT_INVALID_PLAN\n");
+			case CUFFT_ALLOC_FAILED:   fprintf(stderr, "CUFFT_ALLOC_FAILED\n");
+			case CUFFT_INVALID_TYPE:   fprintf(stderr, "CUFFT_INVALID_TYPE\n");
+			case CUFFT_INVALID_VALUE:  fprintf(stderr, "CUFFT_INVALID_VALUE\n");
+			case CUFFT_INTERNAL_ERROR: fprintf(stderr, "CUFFT_INTERNAL_ERROR\n");
+			case CUFFT_EXEC_FAILED:    fprintf(stderr, "CUFFT_EXEC_FAILED\n");
+			case CUFFT_SETUP_FAILED:   fprintf(stderr, "CUFFT_SETUP_FAILED\n");
+			case CUFFT_INVALID_SIZE:   fprintf(stderr, "CUFFT_INVALID_SIZE\n");
+			case CUFFT_UNALIGNED_DATA: fprintf(stderr, "CUFFT_UNALIGNED_DATA\n");
+			default: fprintf(stderr, "CUFFT Unknown error code\n");
+		}
+		exit(-1);
+	}
 }
 

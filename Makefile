@@ -38,7 +38,7 @@ main.o: main.c setup.h balance.h rw.h
 
 test: CUDALucas
 	-rm c216091 t216091
-	@echo "Iteration 1000 M( 216091 )C, 0xd222ff4c0604633e <== expected first residue at 1000 iterations"
+	@echo "Iteration 1000, 0xd222ff4c0604633e <== expected first residue at 1000 iterations"
 	./CUDALucas -o- -c 1000 -t 216091
 
 clean:

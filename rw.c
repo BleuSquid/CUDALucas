@@ -108,7 +108,7 @@ void print_time (int iterations, int current, int total) {
 	print_time_from_seconds(diff);
 	printf(" real");
 	if(iterations)
-		printf(", %3.4f ms/iter", diff1/1000.0/iterations);
+		printf(", %3.3fms/iter", diff1/1000.0/iterations);
 	if(total) {
 		diff = (long)((total - current)/iterations*(diff1/1e6));
 		printf(", ETA ");
@@ -637,7 +637,6 @@ void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, doubl
 		}
 	}
 	
-	if(!archive) fprintf(outfp,"Iteration %d ", current_iteration);
 	if (is_zero(x, n, 0, 0)) {
 		if (outfp != NULL && !ferror(outfp)) fprintf(outfp,  "M( " PRINTF_FMT_UL " )P, n = " PRINTF_FMT_UL ", %s\n", q, n, version_info);
 		if (dupfp != NULL && !ferror(dupfp)) fprintf(dupfp,  "M( " PRINTF_FMT_UL " )P, n = " PRINTF_FMT_UL ", %s\n", q, n, version_info);
@@ -647,10 +646,14 @@ void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, doubl
 		
 		return;
 	}
-	
-	if (outfp != NULL && !ferror(outfp)) fprintf(outfp,  "M( " PRINTF_FMT_UL " )C", q);
-	if (dupfp != NULL && !ferror(dupfp)) fprintf(dupfp,  "M( " PRINTF_FMT_UL " )C", q);
-	if (archfp != NULL)                  fprintf(archfp, "M( " PRINTF_FMT_UL " )C", q);
+
+	if (!archive) {
+		fprintf(outfp,"Iteration %d", current_iteration);
+	} else {
+		if (outfp != NULL && !ferror(outfp)) fprintf(outfp,  "M( " PRINTF_FMT_UL " )C", q);
+		if (dupfp != NULL && !ferror(dupfp)) fprintf(dupfp,  "M( " PRINTF_FMT_UL " )C", q);
+		if (archfp != NULL)                  fprintf(archfp, "M( " PRINTF_FMT_UL " )C", q);
+	}
 
 	if (totalbits < 1) {
 		if (outfp != NULL && !ferror(outfp)) fprintf(outfp,  ", %s\n", version_info);
@@ -699,7 +702,7 @@ void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, doubl
 	static char bits_fmt[16] = "\0"; /* "%%0%ulx" -> "%08lx" or "%016lx" depending on sizeof(UL) */
 	
 	if (bits_fmt[0] != '%')
-		sprintf(bits_fmt, "%%0%lu%s", (UL)(BITS_IN_LONG/4), "lx"); /* 4 bits per hex 'digit' */
+		sprintf(bits_fmt, "%%0" PRINTF_FMT_UL "%s", (UL)(BITS_IN_LONG/4), "lx"); /* 4 bits per hex 'digit' */
 	
 	for (j = (i - 1)/BITS_IN_LONG; j >= 0; j--) {
 		if (outfp != NULL && !ferror(outfp)) fprintf(outfp, bits_fmt, hex[j]);
@@ -708,11 +711,12 @@ void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, doubl
 	}
 	
 	if (outfp != NULL && !ferror(outfp)) {
-		fprintf(outfp, ", n = " PRINTF_FMT_UL ", %s", n, version_info);
+		if (archive)
+			fprintf(outfp, ", n = " PRINTF_FMT_UL ", %s", n, version_info);
+
 		if(!archive && print_times) {
-			printf(" (");
+			printf(", ");
 			print_time(iterations, current_iteration, q);
-			printf(")");
 		}
 		fprintf(outfp, "\n");
 		fflush(outfp);

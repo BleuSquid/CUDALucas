@@ -110,7 +110,7 @@ void print_time (int iterations, int current, int total) {
 	if(iterations)
 		printf(", %3.3fms/iter", diff1/1000.0/iterations);
 	if(total) {
-		diff = (long)((total - current)/iterations*(diff1/1e6));
+		diff = (long)((total - current + iterations)/iterations*(diff1/1e6));
 		printf(", ETA ");
 		print_time_from_seconds(diff);
 	}

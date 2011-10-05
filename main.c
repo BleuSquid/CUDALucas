@@ -108,7 +108,7 @@ w[] and ip[] are compatible with all routines.
 */
 
 /* -------- child routines for rdft() -------- */
-void bitrv2(int n, int *ip, double *a) {
+inline void bitrv2(int n, int *ip, double *a) {
 	int j,j1,k,k1,l,m,m2;
 	double xr,xi,yr,yi;
 	
@@ -208,7 +208,7 @@ void bitrv2(int n, int *ip, double *a) {
 	}
 }
 
-void makewt(int nw, int *ip, double *w) {
+inline void makewt(int nw, int *ip, double *w) {
 	int j, nwh;
 	double delta, x, y;
 	
@@ -235,7 +235,7 @@ void makewt(int nw, int *ip, double *w) {
 	}
 }
 
-void makect(int nc, int *ip, double *c) {
+inline void makect(int nc, int *ip, double *c) {
 	int j,nch;
 	double delta;
 	
@@ -276,7 +276,7 @@ void rdft(int n, double *a, int *ip) {
 
 extern void init_lucas(UL q, UL n);
 
-double last_normalize(double *x,UL N,UL err_flag ) {
+inline double last_normalize(double *x,UL N,UL err_flag ) {
 	UL i,j,k,bj;
 	UL size0;
 	double hi=high, hiinv=highinv, lo=low, loinv=lowinv;
@@ -388,11 +388,12 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip) {
 		cutilSafeCall(cudaMemcpy(x,g_x, sizeof(double)*N, cudaMemcpyDeviceToHost));
 		err=last_normalize(x,N,error_log);
 	} else {
-		if ((iter % 10000) == 0) {
+/* We aren't even using the result of this memcpy? */
+/*		if ((iter % 10000) == 0) {
 			cutilSafeCall(cudaMemcpy(x,g_x, sizeof(double)*N, cudaMemcpyDeviceToHost));
 			err=last_normalize(x,N,error_log);
 		}
-		
+*/		
 		lucas_square_cu(x, N, iter, last, error_log, ip);
 		
 		err = 0.0;

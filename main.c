@@ -42,7 +42,6 @@ mersenne number being tested. (m(q))
 #define kErrLimit (0.35)
 #define kErrChkFreq (100)
 #define kErrChk (1)
-#define kLast (2)
 
 /************************ definitions ********************************
  * This used to try to align to an even multiple of 16 BIG_DOUBLEs in
@@ -62,7 +61,7 @@ extern float          *g_inv;
 extern double     high,low,highinv,lowinv;
 extern double     Gsmall,Gbig,Hsmall,Hbig;
 extern UL             b, c;
-extern cufftHandle    plan;
+cufftHandle    plan;
 extern double *g_x;
 extern double *g_maxerr;
 extern double *g_carry;
@@ -265,16 +264,136 @@ void rdft(int n, double *a, int *ip) {
 		makect(nc, ip, &a[n+512*512] + nw);
 		cutilSafeCall(cudaMemcpy(g_x, a, sizeof(double)*(n/2*3+512*512), cudaMemcpyHostToDevice));
 	}
-	nw = ip[0];
+
 	cufftSafeCall(cufftExecZ2Z(plan,(cufftDoubleComplex *)g_x,(cufftDoubleComplex *)g_x, CUFFT_INVERSE));
 	rftfsub(n,g_x);
 	cufftSafeCall(cufftExecZ2Z(plan,(cufftDoubleComplex *)g_x,(cufftDoubleComplex *)g_x, CUFFT_INVERSE));
 	return;
 }
 
-#define BLOCK_DIM 16
+extern void init_lucas_cu(double *s_inv, double *s_ttp, double *s_ttmp, UL n);
 
-extern void init_lucas(UL q, UL n);
+void init_lucas(UL q, UL n) {
+	UL j,qn,a,i,done;
+	UL size0,bj;
+	double log2 = log(2.0);
+	double ttp,ttmp;
+	double *s_inv,*s_ttp,*s_ttmp;
+	
+	two_to_phi = ALLOC_DOUBLES(n/2);
+	two_to_minusphi = ALLOC_DOUBLES(n/2);
+	s_inv = ALLOC_DOUBLES(n);
+	s_ttp = ALLOC_DOUBLES(n);
+	s_ttmp = ALLOC_DOUBLES(n);
+	
+	if (g_x != NULL) {
+		cutilSafeCall(cudaFree((char *)g_x));
+		cutilSafeCall(cudaFree((char *)g_maxerr));
+		cutilSafeCall(cudaFree((char *)g_carry));
+		cutilSafeCall(cudaFree((char *)g_inv));
+		cutilSafeCall(cudaFree((char *)g_ttp));
+		cutilSafeCall(cudaFree((char *)g_ttmp));
+	}
+	
+/*	printf("Attempting to malloc:\n");
+	printf("g_x:      %dmb\n", sizeof(double)*(n/2*3+512*512)/1024/1024);
+	printf("g_maxerr: %db \n", sizeof(double));
+	printf("g_carry:  %dkb\n", sizeof(double)*n/512/1024);
+	printf("g_inv:    %dmb\n", sizeof(double)*n/2/1024/1024);
+	printf("g_ttp:    %dmb\n", sizeof(double)*n/1024/1024);
+	printf("g_ttmp:   %dmb\n", sizeof(double)*n/1024/1024);
+*/
+	cutilSafeCall(cudaMalloc((void**)&g_x, sizeof(double)*(n/2*3+512*512)));
+	cutilSafeCall(cudaMalloc((void**)&g_maxerr, sizeof(double)));
+	cutilSafeCall(cudaMalloc((void**)&g_carry, sizeof(double)*n/512));
+	cutilSafeCall(cudaMalloc((void**)&g_inv,sizeof(double)*n/2));
+	cutilSafeCall(cudaMalloc((void**)&g_ttp,sizeof(double)*n));
+	cutilSafeCall(cudaMalloc((void**)&g_ttmp,sizeof(double)*n));
+	
+	low = floor((exp(floor((double)q/n)*log2))+0.5);
+	high = low+low;
+	lowinv = 1.0/low;
+	highinv = 1.0/high;
+	b = q % n;
+	c = n-b;
+	
+	two_to_phi[0] = 1.0;
+	two_to_minusphi[0] = 1.0/(double)(n);
+	qn = (b*2)%n;
+	
+	for(i=1,j=2; j<n; j+=2,i++) {
+		a = n - qn;
+		two_to_phi[i] = exp(a*log2/n);
+		two_to_minusphi[i] = 1.0/(two_to_phi[i]*n);
+		qn+=b*2;
+		qn%=n;
+	}
+	
+	Hbig = exp(c*log2/n);
+	Gbig = 1/Hbig;
+	done = 0;
+	j = 0;
+	while (!done) {
+		if (!((j*b) % n >=c || j==0)) {
+			a = n -((j+1)*b)%n;
+			i = n -(j*b)%n;
+			Hsmall = exp(a*log2/n)/exp(i*log2/n);
+			Gsmall = 1/Hsmall;
+			done = 1;
+		}
+		j++;
+	}
+	bj = n;
+	size0 = 1;
+	bj = n - 1 * b;
+	
+	for (j=0,i=0; j<n; j=j+2,i++) {
+		ttmp = two_to_minusphi[i];
+		ttp = two_to_phi[i];
+		
+		bj += b;
+		bj = bj & (n-1);
+		size0 = (bj>=c);
+
+		if(j == 0) size0 = 1;
+
+		s_ttmp[j]=ttmp*2.0;
+
+		if (size0) {
+			s_inv[j]=highinv;
+			ttmp *=Gbig;
+			s_ttp[j]=ttp * high;
+			ttp *= Hbig;
+		} else {
+			s_inv[j]=lowinv;
+			ttmp *=Gsmall;
+			s_ttp[j]=ttp * low;
+			ttp *= Hsmall;
+		}
+
+		bj += b;
+		bj = bj & (n-1);
+		size0 = (bj>=c);
+		
+		if (j==(n-2)) size0 = 0;
+
+		s_ttmp[j+1]=ttmp*-2.0;
+
+		if (size0) {
+			s_inv[j+1]=highinv;
+			s_ttp[j+1]=ttp * high;
+		} else {
+			s_inv[j+1]=lowinv;
+			s_ttp[j+1]=ttp * low;
+		}
+	}
+
+	init_lucas_cu(s_inv, s_ttp, s_ttmp, n);
+	
+	if (s_inv != NULL) free((char *)s_inv);
+	if (s_ttp != NULL) free((char *)s_ttp);
+	if (s_ttmp != NULL) free((char *)s_ttmp);
+}
 
 inline double last_normalize(double *x,UL N,UL err_flag ) {
 	UL i,j,k,bj;
@@ -372,34 +491,22 @@ inline double last_normalize(double *x,UL N,UL err_flag ) {
 	return(maxerr);
 }
 
-extern void lucas_square_cu(double *x, UL N,UL iter, UL last,UL error_log,int *ip);
+extern void lucas_square_cu(UL N,UL error_log);
 
 double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip) {
-	unsigned i;
 	double err;
-//#ifdef _MSC_VER // really? works fine on linux, too
 	double *c_maxerr = (double *)malloc(sizeof(double));
-//#else
-//  double c_maxerr[N/512];
-//#endif
 
 	rdft(N,x,ip);
 	if( iter == last) {
 		cutilSafeCall(cudaMemcpy(x,g_x, sizeof(double)*N, cudaMemcpyDeviceToHost));
 		err=last_normalize(x,N,error_log);
 	} else {
-/* We aren't even using the result of this memcpy? */
-/*		if ((iter % 10000) == 0) {
-			cutilSafeCall(cudaMemcpy(x,g_x, sizeof(double)*N, cudaMemcpyDeviceToHost));
-			err=last_normalize(x,N,error_log);
-		}
-*/		
-
 		if(error_log) {
 			cutilSafeCall(cudaMemset(g_maxerr, 0, sizeof(double)));
 		}
 
-		lucas_square_cu(x, N, iter, last, error_log, ip);
+		lucas_square_cu(N, error_log);
 		
 		err = 0.0;
 		if(error_log) {
@@ -407,9 +514,9 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip) {
 			err=c_maxerr[0];
 		}
 	}
-//#ifdef _MSC_VER
+
 	free (c_maxerr);
-//#endif
+
 	return(err);
 }
 
@@ -557,6 +664,8 @@ int main(int argc, char *argv[]) {
 			restarting = 0;
 			init_lucas(q, n);
 			
+			cufftSafeCall(cufftPlan1d(&plan, n/2, CUFFT_Z2Z, 1));
+
 			if (ip != NULL)
 				free((char *)ip);
 			ip = (int *)ALLOC_DOUBLES(((2+(size_t)sqrt((float)n/2))*sizeof(int)));

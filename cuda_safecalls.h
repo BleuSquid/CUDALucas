@@ -1,5 +1,7 @@
 /* This contains selected functions from CUDA SDK 4.0.17 */
 
+#include <stdio.h>
+
 inline cudaError cutilDeviceSynchronize()
 {
 #if CUDART_VERSION >= 4000
@@ -54,6 +56,7 @@ inline void __cudaSafeThreadSync( const char *file, const int line ) {
 	}
 }
 
+#ifdef _CUFFT_H_
 inline void __cufftSafeCall( cufftResult err, const char *file, const int line ) {
 	if( CUFFT_SUCCESS != err) {
 		fprintf(stderr, "%s(%i) : cufftSafeCall() CUFFT error %d: ",
@@ -73,4 +76,4 @@ inline void __cufftSafeCall( cufftResult err, const char *file, const int line )
 		exit(-1);
 	}
 }
-
+#endif

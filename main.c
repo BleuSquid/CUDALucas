@@ -622,7 +622,7 @@ int main(int argc, char *argv[]) {
 				case 2: /* continuing work from a partial result */
 					init_device(); //msft
 					printf("Resuming from iteration " PRINTF_FMT_UL "\n", j);
-					fprintf(outfp, "Testing: M(" PRINTF_FMT_UL ") using FFT size = %dk\n", q, n/1024);
+					fprintf(outfp, "Testing: M(" PRINTF_FMT_UL ") using FFT size = %dk\n", q, n/2/1024);
 					restarting = 1; 
 					/* not the usual sense of restarting (FFT errors too high) */
 					/* size = n; */ /* supressed */
@@ -634,7 +634,7 @@ int main(int argc, char *argv[]) {
 					j = power_of_two_length(n);
 					n = choose_length(j);
 			
-					fprintf(outfp, "Testing: M(" PRINTF_FMT_UL ") using FFT size = %dk\n", q, n/1024);
+					fprintf(outfp, "Testing: M(" PRINTF_FMT_UL ") using FFT size = %dk\n", q, n/2/1024);
 					if (x != NULL)
 						cutilSafeCall(cudaFreeHost((char *)x));
 					cutilSafeCall(cudaMallocHost((void**) &x,(n+n)*sizeof(double)));

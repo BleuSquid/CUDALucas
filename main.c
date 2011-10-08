@@ -378,7 +378,7 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip) {
 	unsigned i;
 	double err;
 //#ifdef _MSC_VER // really? works fine on linux, too
-	double *c_maxerr = (double *)malloc(N / 512 * sizeof(double));
+	double *c_maxerr = (double *)malloc(sizeof(double));
 //#else
 //  double c_maxerr[N/512];
 //#endif
@@ -394,13 +394,17 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip) {
 			err=last_normalize(x,N,error_log);
 		}
 */		
+
+		if(error_log) {
+			cutilSafeCall(cudaMemset(g_maxerr, 0, sizeof(double)));
+		}
+
 		lucas_square_cu(x, N, iter, last, error_log, ip);
 		
 		err = 0.0;
 		if(error_log) {
-			cutilSafeCall(cudaMemcpy(c_maxerr,g_maxerr, sizeof(double)*N/512, cudaMemcpyDeviceToHost));
-			for(i=0;i<(N/512);i++)
-				if (c_maxerr[i]>err) err=c_maxerr[i];
+			cutilSafeCall(cudaMemcpy(c_maxerr,g_maxerr, sizeof(double), cudaMemcpyDeviceToHost));
+			err=c_maxerr[0];
 		}
 	}
 //#ifdef _MSC_VER

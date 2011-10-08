@@ -238,8 +238,16 @@ void init_lucas(UL q, UL n) {
 		cutilSafeCall(cudaFree((char *)g_ttmp));
 	}
 	
+/*	printf("Attempting to malloc:\n");
+	printf("g_x:      %dmb\n", sizeof(double)*(n/2*3+512*512)/1024/1024);
+	printf("g_maxerr: %db \n", sizeof(double));
+	printf("g_carry:  %dkb\n", sizeof(double)*n/512/1024);
+	printf("g_inv:    %dmb\n", sizeof(double)*n/2/1024/1024);
+	printf("g_ttp:    %dmb\n", sizeof(double)*n/1024/1024);
+	printf("g_ttmp:   %dmb\n", sizeof(double)*n/1024/1024);
+*/
 	cutilSafeCall(cudaMalloc((void**)&g_x, sizeof(double)*(n/2*3+512*512)));
-	cutilSafeCall(cudaMalloc((void**)&g_maxerr, sizeof(double)*n/512));
+	cutilSafeCall(cudaMalloc((void**)&g_maxerr, sizeof(double)));
 	cutilSafeCall(cudaMalloc((void**)&g_carry, sizeof(double)*n/512));
 	cutilSafeCall(cudaMalloc((void**)&g_inv,sizeof(double)*n/2));
 	cutilSafeCall(cudaMalloc((void**)&g_ttp,sizeof(double)*n));
@@ -347,7 +355,7 @@ void init_lucas(UL q, UL n) {
 
 #define IDX(i) ((((i) >> 18) << 18) + (((i) & (512*512-1)) >> 9)  + ((i & 511) << 9))
 template <bool g_err_flag, int stride>
-__global__ void normalize_kernel(double *g_xx, double A, double B, double *g_maxerr,
+__global__ void normalize_kernel(double *g_xx, double A, double B, volatile double *g_maxerr,
 		double *g_carry, float *g_inv, double *g_ttp, double *g_ttmp) {
 	const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
 	const int js= stride * threadID;
@@ -355,22 +363,21 @@ __global__ void normalize_kernel(double *g_xx, double A, double B, double *g_max
 	double carry = (threadID==0) ? -2.0 : 0.0; /* this is the -2 of the LL x*x - 2 */
 	
 	if (g_err_flag) {
-		double maxerr=0.0, err=0.0, tempErr, temp0;
+		double err=0.0, tempErr, temp0;
 #pragma unroll 4
 		for (int j=0; j < stride; j++) {
 			temp0 = g_xx[IDX(j + js)];
 			tempErr = RINT( temp0 * g_ttmp[IDX(j + js)] );
-			err = fabs( (temp0 * g_ttmp[IDX(j + js)]) - tempErr);
+			err = max(err,fabs( (temp0 * g_ttmp[IDX(j + js)]) - tempErr));
 			temp0 = tempErr + carry;
 			temp0 *= g_inv[IDX(j + js)];
 			carry = RINT(temp0);
 			g_xx[IDX(j + js)] = (temp0-carry) * g_ttp[IDX(j + js)];
-			if (err > maxerr) {
-				maxerr = err;
-			}
 		}
-		g_maxerr[threadID]=maxerr;
 		
+		if (err > g_maxerr[0]) {
+			g_maxerr[0] = err;
+		}
 	} else {
 		double4 buf[4];
 		int4 idx;
@@ -436,7 +443,7 @@ __global__ void normalize_kernel(double *g_xx, double A, double B, double *g_max
 	g_carry[threadID]=carry;
 }
 
-__global__ void normalize2_kernel(double *g_xx, double A, double B, double *g_maxerr,
+__global__ void normalize2_kernel(double *g_xx, double A, double B,
 		double *g_carry, UL g_N, float *g_inv, double *g_ttp, double *g_ttmp) {
 	const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
 	const int stride = 512;
@@ -486,7 +493,7 @@ void lucas_square_cu(double *x, UL N,UL iter, UL last,UL error_log,int *ip) {
 		normalize_kernel<0,512><<< N/512/128,128 >>>(&g_x[512*512], bigAB,bigAB,g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
 	}
 	
-	normalize2_kernel<<< N/512/256,256 >>>(&g_x[512*512], bigAB,bigAB,g_maxerr,g_carry,N,g_inv,g_ttp,g_ttmp);
+	normalize2_kernel<<< N/512/256,256 >>>(&g_x[512*512], bigAB,bigAB,g_carry,N,g_inv,g_ttp,g_ttmp);
 	
 	for(i=(512*512);i<(N+512*512);i+=(512*512))
 		square_transpose<512><<< grid, threads >>>(&g_x[i-512*512],&g_x[i]);

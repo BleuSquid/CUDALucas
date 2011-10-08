@@ -171,20 +171,14 @@ template <int width>
 __global__ void square_transpose(double* __restrict__ odata, double* __restrict__ idata) {
 	__shared__ double block[BLOCK_DIM][BLOCK_DIM+1];
 
-	// read the matrix tile into shared memory
-	unsigned int xIndex = blockIdx.x * BLOCK_DIM + threadIdx.x;
-	unsigned int yIndex = blockIdx.y * BLOCK_DIM + threadIdx.y;
-	
-	unsigned int index_in = yIndex * width + xIndex;
+	// read the matrix tile into shared memory	
+	unsigned int index_in = (blockIdx.y * (BLOCK_DIM * width)) + (threadIdx.y * width) + (blockIdx.x * BLOCK_DIM) + threadIdx.x;
 	block[threadIdx.y][threadIdx.x] = idata[index_in];
 	
 	__syncthreads();
 	
 	// write the transposed matrix tile to global memory
-	xIndex = blockIdx.y * BLOCK_DIM + threadIdx.x;
-	yIndex = blockIdx.x * BLOCK_DIM + threadIdx.y;
-	
-	unsigned int index_out = yIndex * width + xIndex;
+	unsigned int index_out = (blockIdx.x * (BLOCK_DIM * width)) + (threadIdx.y * width) + (blockIdx.y * BLOCK_DIM) + threadIdx.x;
 	odata[index_out] = block[threadIdx.x][threadIdx.y];
 }
 
@@ -355,7 +349,7 @@ __global__ void normalize2_kernel(double *g_xx, double A, double B,
 
 void lucas_square_cu(UL N, UL error_log) {
 	
-	unsigned int i;
+	int i;
 	double bigAB=6755399441055744.0;
 	
 	dim3 grid(512 / BLOCK_DIM, 512 / BLOCK_DIM, 1);

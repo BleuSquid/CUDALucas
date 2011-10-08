@@ -37,8 +37,6 @@ mersenne number being tested. (m(q))
 double     *two_to_phi, *two_to_minusphi;
 double     *g_ttp,*g_ttmp;
 float          *g_inv;
-double     high,low,highinv,lowinv;
-double     Gsmall,Gbig,Hsmall,Hbig;
 UL             b, c;
 double *g_x;
 double *g_maxerr;
@@ -192,7 +190,7 @@ __global__ void square_transpose(double* __restrict__ odata, double* __restrict_
 
 template <int width>
 __global__ void square_transposef(float* __restrict__ odata, double* __restrict__ idata) {
-	__shared__ double block[BLOCK_DIM][BLOCK_DIM+1];
+	__shared__ float block[BLOCK_DIM][BLOCK_DIM+1];
 	
 	// read the matrix tile into shared memory
 	unsigned int xIndex = blockIdx.x * BLOCK_DIM + threadIdx.x;

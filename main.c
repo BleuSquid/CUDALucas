@@ -58,8 +58,8 @@ mersenne number being tested. (m(q))
 extern double     *two_to_phi, *two_to_minusphi;
 extern double     *g_ttp,*g_ttmp;
 extern float          *g_inv;
-extern double     high,low,highinv,lowinv;
-extern double     Gsmall,Gbig,Hsmall,Hbig;
+double     high,low,highinv,lowinv;
+double     Gsmall,Gbig,Hsmall,Hbig;
 extern UL             b, c;
 cufftHandle    plan;
 extern double *g_x;
@@ -299,14 +299,14 @@ void init_lucas(UL q, UL n) {
 	printf("g_x:      %dmb\n", sizeof(double)*(n/2*3+512*512)/1024/1024);
 	printf("g_maxerr: %db \n", sizeof(double));
 	printf("g_carry:  %dkb\n", sizeof(double)*n/512/1024);
-	printf("g_inv:    %dmb\n", sizeof(double)*n/2/1024/1024);
+	printf("g_inv:    %dmb\n", sizeof(float)*n/1024/1024);
 	printf("g_ttp:    %dmb\n", sizeof(double)*n/1024/1024);
 	printf("g_ttmp:   %dmb\n", sizeof(double)*n/1024/1024);
 */
 	cutilSafeCall(cudaMalloc((void**)&g_x, sizeof(double)*(n/2*3+512*512)));
 	cutilSafeCall(cudaMalloc((void**)&g_maxerr, sizeof(double)));
 	cutilSafeCall(cudaMalloc((void**)&g_carry, sizeof(double)*n/512));
-	cutilSafeCall(cudaMalloc((void**)&g_inv,sizeof(double)*n/2));
+	cutilSafeCall(cudaMalloc((void**)&g_inv,sizeof(float)*n));
 	cutilSafeCall(cudaMalloc((void**)&g_ttp,sizeof(double)*n));
 	cutilSafeCall(cudaMalloc((void**)&g_ttmp,sizeof(double)*n));
 	

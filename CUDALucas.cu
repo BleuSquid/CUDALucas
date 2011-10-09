@@ -287,11 +287,10 @@ __global__ void normalize_kernel(double *g_xx, double A, double B, volatile doub
 			temp0.y += carry;
 			temp0.y *= buf[2].y;
 			temp0.x  = (temp0.x-carry) * buf[3].x;
+			g_xx[idx.x] = temp0.x;
 			
 			carry    = RINT(temp0.y);
 			temp0.y  = (temp0.y-carry) * buf[3].y;
-			
-			g_xx[idx.x] = temp0.x;
 			g_xx[idx.y] = temp0.y;
 			
 			temp0.x  = RINT(buf[0].z*buf[1].z);
@@ -302,11 +301,10 @@ __global__ void normalize_kernel(double *g_xx, double A, double B, volatile doub
 			temp0.y += carry;
 			temp0.y *= buf[2].w;
 			temp0.x  = (temp0.x-carry) * buf[3].z;
+			g_xx[idx.z] = temp0.x;
 			
 			carry    = RINT(temp0.y);
 			temp0.y  = (temp0.y-carry) * buf[3].w;
-			
-			g_xx[idx.z] = temp0.x;
 			g_xx[idx.w] = temp0.y;
 		}
 	}

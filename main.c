@@ -700,7 +700,7 @@ int main(int argc, char *argv[]) {
 				
 				if ((j % output_frequency) == 0) { 
 					if (( j % (20 * output_frequency)) == 0) { /* 25 lines on standard console */
-						fprintf(outfp, "Testing: M(" PRINTF_FMT_UL ") using FFT size = %dk\n", q, n/1024);
+						fprintf(outfp, "Testing: M(" PRINTF_FMT_UL ") using FFT size = %dk\n", q, n/2/1024);
 					}
 
 					cutilSafeCall(cudaMemcpy(x,g_x, sizeof(double)*n, cudaMemcpyDeviceToHost));

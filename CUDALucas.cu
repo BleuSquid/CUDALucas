@@ -23,21 +23,9 @@ mersenne number being tested. (m(q))
 
 /************************ definitions ************************************/
 
-
-/* This used to try to align to an even multiple of 16 BIG_DOUBLEs in */
-/*  Guillermo's original version, but adjusting pointers from malloc() */
-/*  causes core dumps when they're later passed to free().  Is there */
-/*  another way to do the same thing?  --wedgingt@acm.org */
-#ifdef linux
-#define ALLOC_DOUBLES(n) ((double *)memalign(128,(n)*sizeof(double)))
-#else
-#define ALLOC_DOUBLES(n) ((double *)malloc((n)*sizeof(double)))
-#endif
 /* global variables needed */
-double     *two_to_phi, *two_to_minusphi;
 double     *g_ttp,*g_ttmp;
 float          *g_inv;
-UL             b, c;
 double *g_x;
 double *g_maxerr;
 double *g_carry;
@@ -50,7 +38,7 @@ double *g_carry;
 #if defined(__x86_32__)
 #define RINT(x) (floor(x+0.5))	
 #else
-#define RINT(x) (((x) + A ) - B)
+#define RINT(x) (((x) + 6755399441055744.0 ) - 6755399441055744.0)
 #endif
 
 /*
@@ -72,20 +60,20 @@ The cos/sin table is recalculated when the larger table required.
 w[] and ip[] are compatible with all routines.
 */
 
-__global__ void rftfsub_kernel(int n, double *a) {
+__global__ void rftfsub_kernel(const int n, double *a) {
 	const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
 	double wkr, wki, xr, xi, yr, yi,cc,d,aj,aj1,ak,ak1, *c ;
 	
 	if(threadID != 0) {
-		int j = threadID * 2;
+		const int j = threadID * 2;
 		c = &a[n+n/4+512*512];
-		int nc = n >> 2 ;
+		const int nc = n >> 2 ;
 		
 		aj  = a[j];
 		ak  = a[(n-j)];
 		
-		wkr = c[nc-j/2];
-		wki = c[j/2];
+		wkr = c[nc-threadID];
+		wki = c[threadID];
 		
 		aj1 = a[1+j];
 		ak1 = a[1+(n-j)];
@@ -127,7 +115,7 @@ __global__ void rftfsub_kernel(int n, double *a) {
 		a[1+j]=aj1;
 		a[1+(n-j)]=ak1;
 	} else {
-		int m = n >> 1;
+		const int m = n >> 1;
 		aj  = a[0];
 		ak  = a[1];
 		cc  = a[0+m];
@@ -151,9 +139,9 @@ __global__ void rftfsub_kernel(int n, double *a) {
 	}
 }
 
-void rftfsub(int n, double *g_x) {
-	dim3 grid(n/1024,1,1);
-	dim3 threads(256,1,1);
+void rftfsub(const int n, double *g_x) {
+	dim3 grid(n/512,1,1);
+	dim3 threads(128,1,1);
 	rftfsub_kernel<<<grid,threads>>>(n,g_x);
 }
 
@@ -168,7 +156,7 @@ void rftfsub(int n, double *g_x) {
 // This is templated because the transpose is square. We can eliminate the branching
 // from the if statements because we know height and width are identical
 template <int width>
-__global__ void square_transpose(double* __restrict__ odata, double* __restrict__ idata) {
+__global__ void square_transpose(double* __restrict__ odata, const double* __restrict__ idata) {
 	__shared__ double block[BLOCK_DIM][BLOCK_DIM+1];
 
 	// read the matrix tile into shared memory	
@@ -183,7 +171,7 @@ __global__ void square_transpose(double* __restrict__ odata, double* __restrict_
 }
 
 template <int width>
-__global__ void square_transposef(float* __restrict__ odata, double* __restrict__ idata) {
+__global__ void square_transposef(float* __restrict__ odata, const double* __restrict__ idata) {
 	__shared__ float block[BLOCK_DIM][BLOCK_DIM+1];
 	
 	// read the matrix tile into shared memory
@@ -226,8 +214,8 @@ void init_lucas_cu(double *s_inv, double *s_ttp, double *s_ttmp, UL n) {
 
 #define IDX(i) ((((i) >> 18) << 18) + (((i) & (512*512-1)) >> 9)  + ((i & 511) << 9))
 template <bool g_err_flag, int stride>
-__global__ void normalize_kernel(double *g_xx, double A, double B, volatile double *g_maxerr,
-		double *g_carry, float *g_inv, double *g_ttp, double *g_ttmp) {
+__global__ void normalize_kernel(double *g_xx, volatile double *g_maxerr, double *g_carry,
+		const float *g_inv, const double *g_ttp, const double *g_ttmp) {
 	const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
 	const int js= stride * threadID;
 	
@@ -235,25 +223,23 @@ __global__ void normalize_kernel(double *g_xx, double A, double B, volatile doub
 	
 	if (g_err_flag) {
 		double err=0.0, tempErr, temp0;
-#pragma unroll 4
+#pragma unroll 32
 		for (int j=0; j < stride; j++) {
 			temp0 = g_xx[IDX(j + js)];
 			tempErr = RINT( temp0 * g_ttmp[IDX(j + js)] );
-			err = max(err,fabs( (temp0 * g_ttmp[IDX(j + js)]) - tempErr));
+			err = fmax(err,fabs( (temp0 * g_ttmp[IDX(j + js)]) - tempErr));
 			temp0 = tempErr + carry;
 			temp0 *= g_inv[IDX(j + js)];
 			carry = RINT(temp0);
 			g_xx[IDX(j + js)] = (temp0-carry) * g_ttp[IDX(j + js)];
 		}
-		
-		if (err > g_maxerr[0]) {
-			g_maxerr[0] = err;
-		}
+
+		g_maxerr[0] = fmax(err, g_maxerr[0]);
 	} else {
 		double4 buf[4];
 		int4 idx;
 		double2 temp0;
-#pragma unroll 1
+#pragma unroll 2
 		for (int j=0; j < stride; j+=4) {
 			idx.x = IDX((j + js));
 			idx.y = IDX((j + js) + 1);
@@ -312,8 +298,8 @@ __global__ void normalize_kernel(double *g_xx, double A, double B, volatile doub
 	g_carry[threadID]=carry;
 }
 
-__global__ void normalize2_kernel(double *g_xx, double A, double B,
-		double *g_carry, UL g_N, float *g_inv, double *g_ttp, double *g_ttmp) {
+__global__ void normalize2_kernel(double *g_xx, double *g_carry, const UL g_N,
+		const float *g_inv, const double *g_ttp, const double *g_ttmp) {
 	const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
 	const int stride = 512;
 	const int js= stride * threadID;
@@ -330,14 +316,14 @@ __global__ void normalize2_kernel(double *g_xx, double A, double B,
 	
 	for (j=k; carry != 0.0 && j<ke; j+=2) {
 		temp0 = g_xx[IDX(j)];
-		tempErr = RINT( temp0*g_ttmp[IDX(j)]*0.5*g_N );
+		tempErr = RINT( temp0*g_ttmp[IDX(j)]*(0.5*g_N));
 		temp0 = tempErr + carry;
 		temp0 *= g_inv[IDX(j)];
 		carry = RINT(temp0);
 		g_xx[IDX(j)] = (temp0-carry) * g_ttp[IDX(j)];
 		
 		temp0 = g_xx[IDX(j+1)];
-		tempErr = RINT( temp0*g_ttmp[IDX(j+1)]*(-0.5)*g_N );
+		tempErr = RINT( temp0*g_ttmp[IDX(j+1)]*-(0.5*g_N));
 		temp0 = tempErr + carry;
 		temp0 *= g_inv[IDX(j+1)];
 		carry = RINT(temp0);
@@ -348,7 +334,6 @@ __global__ void normalize2_kernel(double *g_xx, double A, double B,
 void lucas_square_cu(UL N, UL error_log) {
 	
 	int i;
-	double bigAB=6755399441055744.0;
 	
 	dim3 grid(512 / BLOCK_DIM, 512 / BLOCK_DIM, 1);
 	dim3 threads(BLOCK_DIM, BLOCK_DIM, 1);
@@ -357,12 +342,13 @@ void lucas_square_cu(UL N, UL error_log) {
 		square_transpose<512><<< grid, threads >>>(&g_x[i],&g_x[i-512*512]);
 	
 	if (error_log) {
-		normalize_kernel<1,512><<< N/512/128,128 >>>(&g_x[512*512], bigAB,bigAB,g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
+		cutilSafeCall(cudaMemset(g_maxerr, 0, sizeof(double)));
+		normalize_kernel<1,512><<< N/512/128,128 >>>(&g_x[512*512],g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
 	} else {
-		normalize_kernel<0,512><<< N/512/128,128 >>>(&g_x[512*512], bigAB,bigAB,g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
+		normalize_kernel<0,512><<< N/512/128,128 >>>(&g_x[512*512],g_maxerr,g_carry,g_inv,g_ttp,g_ttmp);
 	}
 	
-	normalize2_kernel<<< N/512/256,256 >>>(&g_x[512*512], bigAB,bigAB,g_carry,N,g_inv,g_ttp,g_ttmp);
+	normalize2_kernel<<< N/512/256,256 >>>(&g_x[512*512],g_carry,N,g_inv,g_ttp,g_ttmp);
 	
 	for(i=(512*512);i<(N+512*512);i+=(512*512))
 		square_transpose<512><<< grid, threads >>>(&g_x[i-512*512],&g_x[i]);

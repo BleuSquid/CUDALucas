@@ -55,12 +55,12 @@ mersenne number being tested. (m(q))
 #endif
 
 /* global variables needed */
-extern double     *two_to_phi, *two_to_minusphi;
+double     *two_to_phi, *two_to_minusphi;
 extern double     *g_ttp,*g_ttmp;
 extern float          *g_inv;
 double     high,low,highinv,lowinv;
 double     Gsmall,Gbig,Hsmall,Hbig;
-extern UL             b, c;
+UL             b, c;
 cufftHandle    plan;
 extern double *g_x;
 extern double *g_maxerr;
@@ -309,6 +309,9 @@ void init_lucas(UL q, UL n) {
 	cutilSafeCall(cudaMalloc((void**)&g_inv,sizeof(float)*n));
 	cutilSafeCall(cudaMalloc((void**)&g_ttp,sizeof(double)*n));
 	cutilSafeCall(cudaMalloc((void**)&g_ttmp,sizeof(double)*n));
+
+	cutilSafeCall(cudaMemset(g_carry, 0, sizeof(double)));
+	cutilSafeCall(cudaMemset(g_maxerr, 0, sizeof(double)));
 	
 	low = floor((exp(floor((double)q/n)*log2))+0.5);
 	high = low+low;
@@ -494,28 +497,24 @@ inline double last_normalize(double *x,UL N,UL err_flag ) {
 extern void lucas_square_cu(UL N,UL error_log);
 
 double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip) {
-	double err;
-	double *c_maxerr = (double *)malloc(sizeof(double));
+	double err = 0.0;
 
 	rdft(N,x,ip);
 	if( iter == last) {
 		cutilSafeCall(cudaMemcpy(x,g_x, sizeof(double)*N, cudaMemcpyDeviceToHost));
 		err=last_normalize(x,N,error_log);
 	} else {
-		if(error_log) {
-			cutilSafeCall(cudaMemset(g_maxerr, 0, sizeof(double)));
-		}
-
 		lucas_square_cu(N, error_log);
 		
-		err = 0.0;
 		if(error_log) {
+			double *c_maxerr = (double *)malloc(sizeof(double));
+
 			cutilSafeCall(cudaMemcpy(c_maxerr,g_maxerr, sizeof(double), cudaMemcpyDeviceToHost));
 			err=c_maxerr[0];
+			
+			free (c_maxerr);
 		}
 	}
-
-	free (c_maxerr);
 
 	return(err);
 }

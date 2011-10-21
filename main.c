@@ -64,7 +64,7 @@ UL             b, c;
 cufftHandle    plan;
 extern double *g_x;
 extern double *g_maxerr;
-extern double *g_carry;
+extern int *g_carry;
 
 /********  The TRICK to round to nearest *******************************/
 /* This plays with the internal hardward round to nearest when we add a
@@ -305,12 +305,12 @@ void init_lucas(UL q, UL n) {
 */
 	cutilSafeCall(cudaMalloc((void**)&g_x, sizeof(double)*(n/2*3+512*512)));
 	cutilSafeCall(cudaMalloc((void**)&g_maxerr, sizeof(double)));
-	cutilSafeCall(cudaMalloc((void**)&g_carry, sizeof(double)*n/512));
+	cutilSafeCall(cudaMalloc((void**)&g_carry, sizeof(int)*n/512));
 	cutilSafeCall(cudaMalloc((void**)&g_inv,sizeof(float)*n));
 	cutilSafeCall(cudaMalloc((void**)&g_ttp,sizeof(double)*n));
 	cutilSafeCall(cudaMalloc((void**)&g_ttmp,sizeof(double)*n));
 
-	cutilSafeCall(cudaMemset(g_carry, 0, sizeof(double)));
+	cutilSafeCall(cudaMemset(g_carry, 0, sizeof(int)));
 	cutilSafeCall(cudaMemset(g_maxerr, 0, sizeof(double)));
 	
 	low = floor((exp(floor((double)q/n)*log2))+0.5);

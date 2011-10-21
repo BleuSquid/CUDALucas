@@ -28,7 +28,7 @@ double     *g_ttp,*g_ttmp;
 float          *g_inv;
 double *g_x;
 double *g_maxerr;
-double *g_carry;
+int *g_carry;
 
 /* rint is not ANSI compatible, so we need a definition for 
 * WIN32 and other platforms with rint.
@@ -214,12 +214,12 @@ void init_lucas_cu(double *s_inv, double *s_ttp, double *s_ttmp, UL n) {
 
 #define IDX(i) ((((i) >> 18) << 18) + (((i) & (512*512-1)) >> 9)  + ((i & 511) << 9))
 template <bool g_err_flag, int stride>
-__global__ void normalize_kernel(double *g_xx, volatile double *g_maxerr, double *g_carry,
+__global__ void normalize_kernel(double *g_xx, volatile double *g_maxerr, int *g_carry,
 		const float *g_inv, const double *g_ttp, const double *g_ttmp) {
 	const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
 	const int js= stride * threadID;
 	
-	double carry = (threadID==0) ? -2.0 : 0.0; /* this is the -2 of the LL x*x - 2 */
+	int carry = (threadID==0) ? -2.0 : 0.0; /* this is the -2 of the LL x*x - 2 */
 	
 	if (g_err_flag) {
 		double err=0.0, tempErr, temp0;
@@ -294,11 +294,11 @@ __global__ void normalize_kernel(double *g_xx, volatile double *g_maxerr, double
 			g_xx[idx.w] = temp0.y;
 		}
 	}
-	
+
 	g_carry[threadID]=carry;
 }
 
-__global__ void normalize2_kernel(double *g_xx, double *g_carry, const UL g_N,
+__global__ void normalize2_kernel(double *g_xx, int *g_carry, const UL g_N,
 		const float *g_inv, const double *g_ttp, const double *g_ttmp) {
 	const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
 	const int stride = 512;
@@ -306,7 +306,7 @@ __global__ void normalize2_kernel(double *g_xx, double *g_carry, const UL g_N,
 	const int je= js + stride;
 	UL j;
 	double temp0,tempErr;
-	double carry;
+	int carry;
 	int k,ke;
 	
 	k = (je == g_N) ? 0 : je;

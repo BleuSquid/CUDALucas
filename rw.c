@@ -50,11 +50,6 @@ static const char Options[] =
 
 static timeval start_time;
 
-#if defined(USE_RUSAGE)
-# include <sys/resource.h>
-int getrusage (int who, struct rusage *usage);
-#endif
-
 /* Checkpoints are the save files for the Lucas-Lehmer test programs, */
 /*  mersenne1, mersenne2, and fftlucas */
 
@@ -63,7 +58,6 @@ UL chkpnt_iterations = 0;
 int device_number = 0; //msft
 
 /* checkpoint file formats: human readable and machine-specific binary with magic number ala file(1) */
-#define CHKPNT_ASCII 0
 #define CHKPNT_BINARY 1
 #define MAGIC_NUMBER (0x76757473)
 
@@ -90,16 +84,9 @@ void print_time_from_seconds(int sec) {
 void print_time (int iterations, int current, int total) {
 	timeval end_time;
 	unsigned long diff, diff1;
-#if defined(RUSAGE_SELF)
-	struct rusage ru;
-#endif
 	
 	if (!print_times) return;
-	
-#if defined(RUSAGE_SELF)
-	getrusage(RUSAGE_SELF, &ru);
-	printf("%ld.%02ld user %ld.%02ld sys ", (long)ru.ru_utime.tv_sec, (long)ru.ru_utime.tv_usec/10000, (long)ru.ru_stime.tv_sec, (long)ru.ru_stime.tv_usec/10000);
-#endif
+
 	gettimeofday(&end_time, NULL);
 	
 	diff = end_time.tv_sec - start_time.tv_sec;
@@ -107,13 +94,13 @@ void print_time (int iterations, int current, int total) {
 	start_time = end_time;
 	print_time_from_seconds(diff);
 	printf(" real");
-	if(iterations)
-		printf(", %3.3fms/iter", diff1/1000.0/iterations);
-	if(total) {
-		diff = (long)((total - current + iterations)/iterations*(diff1/1e6));
-		printf(", ETA ");
-		print_time_from_seconds(diff);
-	}
+
+	printf(", %3.3fms/iter", diff1/1000.0/iterations);
+
+	diff = (long)((total - current + iterations)/iterations*(diff1/1e6));
+	printf(", ETA ");
+	print_time_from_seconds(diff);
+
 	return;
 }
 
@@ -264,14 +251,7 @@ get_next_q: /* all but one goto to here are just before a return if (*q < start_
 							if (tmpstr != NULL && tmpstr == argv[arg + 1])
 								arg++;
 						break;
-					/* case 'd': is with case 'o': below because they share code */
-					case 'h': /* human-readable checkpoint format */
-						if (strncmp(program_name, "fftlucas", 8)) {
-							fprintf(stderr, "%s: only fftlucas supports human readable checkpoints\n%s", program_name, Options);
-							//              exit(1);
-						}
-						chkpnt_fmt = CHKPNT_ASCII;
-						break;
+					/* case 'd': is with case 'o': because they share code */
 					case 'o': case 'd': /* 'o'utput and 'd'uplicate output files */
 						i = argv[arg][1];
 						if (tmpstr == NULL) {
@@ -569,25 +549,6 @@ int check_point(UL q, UL n, UL j, double err, double *x) {
 					return(0);
 				}
 			break;
-		case CHKPNT_ASCII:
-		default: /* some compilers think sizeof() returns an int and others think it returns a long */
-			if (fprintf(chkpnt_fp, PRINTF_FMT_ONE, q, n, j, err, (long)sizeof(BIG_LONG), (long)sizeof(double), ROUNDED_HALF_MANTISSA) <= 0) {
-				perror(program_name);
-				fprintf(stderr, "%s: cannot write checkpoint info (RI header, q = " PRINTF_FMT_UL ")\n", program_name, q);
-				return(0);
-			}
-			for (k = 0; k < n; k++)
-				if (fprintf(chkpnt_fp, PRINTF_FMT_TWO, x[k]) <= 0) {
-					perror(program_name);
-					fprintf(stderr, "%s: cannot write checkpoint info (RI mid, q = " PRINTF_FMT_UL ")\n", program_name, q);
-					return(0);
-				}
-			if (fprintf(chkpnt_fp, "RI " PRINTF_FMT_UL " done\n", q) <= 0) {
-				perror(program_name);
-				fprintf(stderr, "%s: cannot write checkpoint info (RI tail, q = " PRINTF_FMT_UL ")\n", program_name, q);
-				return(0);
-			}
-			break;
 	}
 	fflush(chkpnt_fp);
 #if !defined(macintosh) && !defined(_MSC_VER)
@@ -622,21 +583,72 @@ static void close_archive(FILE *archfp, FILE *outfp, FILE *dupfp) {
 }
 
 void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, double lo,
-     const char *version_info, FILE *outfp, FILE *dupfp, int iterations, int current_iteration, bool archive) {
-	FILE *archfp = NULL;
-	
-	if(archive) archfp = open_archive();
-	
-	if (version_info == NULL || version_info[0] == '\0') {
-		fprintf(stderr, "%s: printbits() called with no version info; bug\n", program_name);
-		if (outfp != NULL && outfp != stderr) {
-			fprintf(outfp, "%s: printbits() called with no version info; bug\n", program_name);
+		const char *version_info, FILE *outfp, FILE *dupfp, int iterations, int current_iteration) {
+
+	fprintf(outfp,"Iter %d (%2d%%)", current_iteration, 100*current_iteration/q);
+
+	balancedtostdrep(x, n, b, c, hi, lo, 0, 0);
+	static UL *hex = NULL;
+	static UL prior_hex = 0;
+	if (hex != NULL && totalbits/BITS_IN_LONG + 1 > prior_hex) {
+		free(hex);
+		hex = NULL; 
+		prior_hex = totalbits/BITS_IN_LONG + 1;
+	}
+	if (hex == NULL && (hex = (UL *)calloc(totalbits/BITS_IN_LONG + 1, sizeof(UL))) == NULL) {
+		perror(program_name);
+		fprintf(stderr, "%s: cannot get memory for residue bits; calloc() errno %d\n", program_name, errno);
+		exit(errno);
+	}
+	int i = 0;
+	int j = 0;
+	do {
+		UL k = (long)(ceil((double)q*(j + 1)/n) - ceil((double)q*j/n));
+		if (k > totalbits) k = totalbits;
+		totalbits -= k;
+		int word = (long)x[j];
+		for (j++; k > 0; k--, i++) {
+			if (i % BITS_IN_LONG == 0)
+				hex[i/BITS_IN_LONG] = 0L;
+			hex[i/BITS_IN_LONG] |= ((word & 0x1) << (i % BITS_IN_LONG));
+			word >>= 1;
 		}
-		if (dupfp != NULL && dupfp != stderr) {
-			fprintf(dupfp, "%s: printbits() called with no version info; bug\n", program_name);
+	} while(totalbits > 0);
+	
+	if (outfp != NULL && !ferror(outfp)) fputs(", 0x", outfp);
+	if (dupfp != NULL && !ferror(dupfp)) fputs(", 0x", dupfp);
+	
+	static char bits_fmt[16] = "\0"; /* "%%0%ulx" -> "%08lx" or "%016lx" depending on sizeof(UL) */
+
+	if (bits_fmt[0] != '%')
+		sprintf(bits_fmt, "%%0" PRINTF_FMT_UL "%s", (UL)(BITS_IN_LONG/4), "lx"); /* 4 bits per hex 'digit' */
+	
+	for (j = (i - 1)/BITS_IN_LONG; j >= 0; j--) {
+		if (outfp != NULL && !ferror(outfp)) fprintf(outfp, bits_fmt, hex[j]);
+		if (dupfp != NULL && !ferror(dupfp)) fprintf(dupfp, bits_fmt, hex[j]);
+	}
+
+	if (outfp != NULL && !ferror(outfp)) {
+		if(print_times) {
+			printf(", ");
+			print_time(iterations, current_iteration, q);
 		}
+		fprintf(outfp, "\n");
+		fflush(outfp);
 	}
 	
+	if (dupfp != NULL && !ferror(dupfp))
+		fprintf(dupfp, ", n = " PRINTF_FMT_UL ", %s\n", n, version_info);
+	return;
+}
+
+void archivebits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, double lo,
+		const char *version_info, FILE *outfp, FILE *dupfp) {
+
+	FILE *archfp = NULL;
+	
+	archfp = open_archive();
+
 	if (is_zero(x, n, 0, 0)) {
 		if (outfp != NULL && !ferror(outfp)) fprintf(outfp,  "M( " PRINTF_FMT_UL " )P, n = " PRINTF_FMT_UL ", %s\n", q, n, version_info);
 		if (dupfp != NULL && !ferror(dupfp)) fprintf(dupfp,  "M( " PRINTF_FMT_UL " )P, n = " PRINTF_FMT_UL ", %s\n", q, n, version_info);
@@ -647,24 +659,10 @@ void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, doubl
 		return;
 	}
 
-	if (!archive) {
-		fprintf(outfp,"Iteration %d", current_iteration);
-	} else {
-		if (outfp != NULL && !ferror(outfp)) fprintf(outfp,  "M( " PRINTF_FMT_UL " )C", q);
-		if (dupfp != NULL && !ferror(dupfp)) fprintf(dupfp,  "M( " PRINTF_FMT_UL " )C", q);
-		if (archfp != NULL)                  fprintf(archfp, "M( " PRINTF_FMT_UL " )C", q);
-	}
+	if (outfp != NULL && !ferror(outfp)) fprintf(outfp,  "M( " PRINTF_FMT_UL " )C", q);
+	if (dupfp != NULL && !ferror(dupfp)) fprintf(dupfp,  "M( " PRINTF_FMT_UL " )C", q);
+	if (archfp != NULL)                  fprintf(archfp, "M( " PRINTF_FMT_UL " )C", q);
 
-	if (totalbits < 1) {
-		if (outfp != NULL && !ferror(outfp)) fprintf(outfp,  ", %s\n", version_info);
-		if (dupfp != NULL && !ferror(dupfp)) fprintf(dupfp,  ", %s\n", version_info);
-		if (archfp != NULL)                  fprintf(archfp, ", %s\n", version_info);
-		
-		if (archfp != NULL) close_archive(archfp, outfp, dupfp);
-		
-		return;
-	}
-	
 	balancedtostdrep(x, n, b, c, hi, lo, 0, 0);
 	static UL *hex = NULL;
 	static UL prior_hex = 0;
@@ -711,16 +709,11 @@ void printbits(double *x, UL q, UL n, UL totalbits, UL b, UL c, double hi, doubl
 	}
 	
 	if (outfp != NULL && !ferror(outfp)) {
-		if (archive)
-			fprintf(outfp, ", n = " PRINTF_FMT_UL ", %s", n, version_info);
-
-		if(!archive && print_times) {
-			printf(", ");
-			print_time(iterations, current_iteration, q);
-		}
+		fprintf(outfp, ", n = " PRINTF_FMT_UL ", %s", n, version_info);
 		fprintf(outfp, "\n");
 		fflush(outfp);
 	}
+
 	if (dupfp != NULL && !ferror(dupfp))
 		fprintf(dupfp, ", n = " PRINTF_FMT_UL ", %s\n", n, version_info);
 	if (archfp != NULL) {

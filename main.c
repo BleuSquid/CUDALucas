@@ -1,5 +1,5 @@
 const char *program_name = "CUDALucas"; /* for perror() and similar */
-const char program_revision[] = "$Revision: 1.3alpha_ah42$";
+const char program_revision[] = "$Revision: 1.3.1-ah42$";
 char version[sizeof(program_name) + sizeof(program_revision)]; /* overly long, but certain */
 
 /* CUDALucas.c
@@ -40,8 +40,7 @@ mersenne number being tested. (m(q))
 
 /* some definitions needed by mers package */
 #define kErrLimit (0.35)
-#define kErrChkFreq (100)
-#define kErrChk (1)
+#define kErrChkFreq (1000)
 
 /************************ definitions ********************************
  * This used to try to align to an even multiple of 16 BIG_DOUBLEs in
@@ -275,7 +274,8 @@ extern void init_lucas_cu(double *s_inv, double *s_ttp, double *s_ttmp, UL n);
 
 void init_lucas(UL q, UL n) {
 	UL j,qn,a,i,done;
-	UL size0,bj;
+	UL bj;
+	unsigned int size0;
 	double log2 = log(2.0);
 	double ttp,ttmp;
 	double *s_inv,*s_ttp,*s_ttmp;
@@ -346,8 +346,6 @@ void init_lucas(UL q, UL n) {
 		}
 		j++;
 	}
-	bj = n;
-	size0 = 1;
 	bj = n - 1 * b;
 	
 	for (j=0,i=0; j<n; j=j+2,i++) {
@@ -356,9 +354,8 @@ void init_lucas(UL q, UL n) {
 		
 		bj += b;
 		bj = bj & (n-1);
-		size0 = (bj>=c);
 
-		if(j == 0) size0 = 1;
+		size0 = (j == 0) ? 1 : (bj >= c);
 
 		s_ttmp[j]=ttmp*2.0;
 
@@ -376,9 +373,8 @@ void init_lucas(UL q, UL n) {
 
 		bj += b;
 		bj = bj & (n-1);
-		size0 = (bj>=c);
-		
-		if (j==(n-2)) size0 = 0;
+
+		size0 = (j == (n-2)) ? 0 : (bj >=c);
 
 		s_ttmp[j+1]=ttmp*-2.0;
 
@@ -398,9 +394,10 @@ void init_lucas(UL q, UL n) {
 	if (s_ttmp != NULL) free((char *)s_ttmp);
 }
 
-inline double last_normalize(double *x,UL N,UL err_flag ) {
+template <unsigned int err_flag>
+inline double last_normalize(double *x,UL N ) {
 	UL i,j,k,bj;
-	UL size0;
+	unsigned int size0;
 	double hi=high, hiinv=highinv, lo=low, loinv=lowinv;
 	double temp0,tempErr;
 	double maxerr=0.0,err=0.0,ttmpSmall=Gsmall,ttmpBig=Gbig,ttmp;
@@ -502,7 +499,11 @@ double lucas_square(double *x, UL N,UL iter, UL last,UL error_log,int *ip) {
 	rdft(N,x,ip);
 	if( iter == last) {
 		cutilSafeCall(cudaMemcpy(x,g_x, sizeof(double)*N, cudaMemcpyDeviceToHost));
-		err=last_normalize(x,N,error_log);
+		if(error_log) {
+			err=last_normalize<1>(x,N);
+		} else {
+			err=last_normalize<0>(x,N);
+		}
 	} else {
 		lucas_square_cu(N, error_log);
 		
@@ -675,14 +676,11 @@ int main(int argc, char *argv[]) {
 			last = q - 2; /* the last iteration done in the primary loop */
 			int output_frequency = chkpnt_iterations ? chkpnt_iterations : 10000;
 			for ( ; !shouldTerminate && !restarting && j <= last; j++) {
-#if (kErrChkFreq > 1)
 				if ((j % kErrChkFreq) == 1 || j < 1000)
-#endif
-					flag = kErrChk;
-#if (kErrChkFreq > 1)
+					flag = 1;
 				else 
 					flag = 0;
-#endif
+
 				err = lucas_square(x, n, j, last, flag,ip);
 				if (chkpnt_iterations != 0 && j % chkpnt_iterations == 2 && j < last) {
 					cutilSafeCall(cudaMemcpy(x, g_x, sizeof(double)*n, cudaMemcpyDeviceToHost));
@@ -711,6 +709,7 @@ int main(int argc, char *argv[]) {
 			
 			if (restarting) continue;
 			else if (j < last) { /* not done, but need to quit, for example, by a SIGTERM signal*/
+				printf("\nExiting at iteration " PRINTF_FMT_UL " (%2.2f%%)\n", j, (double)(100.0f*(float)j/(float)last));
 				chkpnt_iterations = 0L;
 				
 				cutilSafeCall(cudaMemcpy(x,g_x, sizeof(double)*n, cudaMemcpyDeviceToHost));
@@ -718,7 +717,7 @@ int main(int argc, char *argv[]) {
 				return((check_point(q, n, j, err, x) <= 0) ? errno : 0);
 			}
 		} while (restarting);
-		printbits(x, q, n, (UL)((q > 64L) ? 64L : q), b, c, high, low, version, outfp, dupfp, 0, j, true);
+		archivebits(x, q, n, (UL)((q > 64L) ? 64L : q), b, c, high, low, version, outfp, dupfp);
 	}
 	return(0);
 }

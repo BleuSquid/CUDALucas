@@ -29,7 +29,7 @@ setup.o: setup.c setup.h
 	$(CXX) $(CFLAGS) -c setup.c
 rw.o: rw.c rw.h setup.h
 	$(CXX) $(CFLAGS) -c rw.c
-balance.o: balance.c balance.h globals.h setup.h
+balance.o: balance.c balance.h setup.h
 	$(CXX) $(CFLAGS) -c balance.c
 zero.o: zero.c zero.h setup.h
 	$(CXX) $(CFLAGS) -c zero.c

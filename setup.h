@@ -13,9 +13,6 @@ extern const char program_revision[];
 #define SIZEOF_UL 4
   /* the previous would not be needed if the preprocessor understood sizeof() */
 #define ROUNDED_HALF_MANTISSA 32L
-/* truncate an IEEE double by adding and then subtracting 3.0*2^51 to it */
-#define TRUNC_A (3.0*0x4000000*0x2000000)
-#define TRUNC_B (12.0*0x2000000*0x1000000)
 #define PRINTF_FMT_ONE "RI q %lu n %lu j %lu err %f sBL %ld sD %ld RHM %ld\n"
 #define PRINTF_FMT_TWO "RI %.1f\n"
 #define PRINTF_FMT_UL "%lu"
@@ -78,27 +75,6 @@ extern const char program_revision[];
 # define rint(x) ((double)((BIG_LONG)(x + 0.5)))
 
 #  include <string.h>
-
-# ifndef pc7300
-
-#  ifdef _MSC_VER
-#   define bzero(str, len) (void)memset(str, '\0', len)
-#  endif
-
-# else
-#  include <memory.h>
-
-#  define bzero(str, len) (void)memset(str, '\0', len)
-
-/* CAREFUL: this macro only works when newfd < smallest fd not open */
-/*  We only need it to replace 0 (stdin) and 1 (stdout) presently */
-/*  It could be done properly with pair of while loops and an array to */
-/*   remember the fd's we opened that we didn't want */
-#  define dup2(fd, newfd) ((void)close(newfd), (void)dup(fd))
-
-#  define setlinebuf(fp) setbuf(fp, NULL)
-
-# endif
 
 # include <signal.h>
 # include <errno.h>

@@ -1,6 +1,5 @@
 #include "setup.h"
 #include "balance.h"
-#include "globals.h"
 
 UL is_big(UL j, UL big, UL small, UL n) {
 	return((((big*j) % n) >= small) || j == 0);

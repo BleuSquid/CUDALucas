@@ -223,15 +223,17 @@ __global__ void normalize_kernel(double *g_xx, volatile double *g_maxerr, int *g
 	
 	if (g_err_flag) {
 		double err=0.0, tempErr, temp0;
+		int idx;
 #pragma unroll 32
 		for (int j=0; j < stride; j++) {
-			temp0 = g_xx[IDX(j + js)];
-			tempErr = RINT( temp0 * g_ttmp[IDX(j + js)] );
-			err = fmax(err,fabs( (temp0 * g_ttmp[IDX(j + js)]) - tempErr));
+			idx = IDX(j + js);
+			temp0 = g_xx[idx];
+			tempErr = RINT( temp0 * g_ttmp[idx] );
+			err = fmax(err,fabs( (temp0 * g_ttmp[idx]) - tempErr));
 			temp0 = tempErr + carry;
-			temp0 *= g_inv[IDX(j + js)];
+			temp0 *= g_inv[idx];
 			carry = RINT(temp0);
-			g_xx[IDX(j + js)] = (temp0-carry) * g_ttp[IDX(j + js)];
+			g_xx[idx] = (temp0-carry) * g_ttp[idx];
 		}
 
 		g_maxerr[0] = fmax(err, g_maxerr[0]);
@@ -239,12 +241,16 @@ __global__ void normalize_kernel(double *g_xx, volatile double *g_maxerr, int *g
 		double4 buf[4];
 		int4 idx;
 		double2 temp0;
-#pragma unroll 2
+#pragma unroll 16
 		for (int j=0; j < stride; j+=4) {
-			idx.x = IDX((j + js));
-			idx.y = IDX((j + js) + 1);
-			idx.z = IDX((j + js) + 2);
-			idx.w = IDX((j + js) + 3);
+			// Store first part of IDX calculation for re-use. This saves many registers
+			idx.w = (((j + js) >> 18) << 18) + (((j + js) & (512*512-1)) >> 9);
+			// Then just add on the bits unique to each idx
+			idx.x = idx.w + (((j+js  ) & 511) << 9);
+			idx.y = idx.w + (((j+js+1) & 511) << 9);
+			idx.z = idx.w + (((j+js+2) & 511) << 9);
+			idx.w = idx.w + (((j+js+3) & 511) << 9);
+
 			buf[0].x = g_xx[idx.x];
 			buf[1].x = g_ttmp[idx.x];
 			buf[2].x = g_inv[idx.x];
@@ -264,7 +270,7 @@ __global__ void normalize_kernel(double *g_xx, volatile double *g_maxerr, int *g
 			buf[1].w = g_ttmp[idx.w];
 			buf[2].w = g_inv[idx.w];
 			buf[3].w = g_ttp[idx.w];
-			
+
 			temp0.x  = RINT(buf[0].x*buf[1].x);
 			temp0.y  = RINT(buf[0].y*buf[1].y);
 			temp0.x += carry;
@@ -298,7 +304,7 @@ __global__ void normalize_kernel(double *g_xx, volatile double *g_maxerr, int *g
 	g_carry[threadID]=carry;
 }
 
-__global__ void normalize2_kernel(double *g_xx, int *g_carry, const UL g_N,
+__global__ void normalize2_kernel(double *g_xx, const int *g_carry, const UL g_N,
 		const float *g_inv, const double *g_ttp, const double *g_ttmp) {
 	const int threadID = blockIdx.x * blockDim.x + threadIdx.x;
 	const int stride = 512;
@@ -316,14 +322,14 @@ __global__ void normalize2_kernel(double *g_xx, int *g_carry, const UL g_N,
 	
 	for (j=k; carry != 0.0 && j<ke; j+=2) {
 		temp0 = g_xx[IDX(j)];
-		tempErr = RINT( temp0*g_ttmp[IDX(j)]*(0.5*g_N));
+		tempErr = RINT( temp0*g_ttmp[IDX(j)]*(0.5f*g_N));
 		temp0 = tempErr + carry;
 		temp0 *= g_inv[IDX(j)];
 		carry = RINT(temp0);
 		g_xx[IDX(j)] = (temp0-carry) * g_ttp[IDX(j)];
 		
 		temp0 = g_xx[IDX(j+1)];
-		tempErr = RINT( temp0*g_ttmp[IDX(j+1)]*-(0.5*g_N));
+		tempErr = RINT( temp0*g_ttmp[IDX(j+1)]*-(0.5f*g_N));
 		temp0 = tempErr + carry;
 		temp0 *= g_inv[IDX(j+1)];
 		carry = RINT(temp0);

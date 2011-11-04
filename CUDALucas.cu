@@ -140,8 +140,8 @@ __global__ void rftfsub_kernel(const int n, double *a) {
 }
 
 void rftfsub(const int n, double *g_x) {
-	dim3 grid(n/512,1,1);
 	dim3 threads(128,1,1);
+	dim3 grid(n/(4*threads.x),1,1);
 	rftfsub_kernel<<<grid,threads>>>(n,g_x);
 }
 
